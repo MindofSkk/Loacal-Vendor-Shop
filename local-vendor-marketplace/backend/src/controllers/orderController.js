@@ -161,14 +161,22 @@ export const listSellerOrders = asyncHandler(async (req, res) => {
 });
 
 export const listAllOrders = asyncHandler(async (req, res) => {
-  const { status } = req.query;
+  const { status, category, businessType } = req.query;
   const query = {};
   if (status) query.status = status;
+
+  if (category || businessType) {
+    const shopQuery = {};
+    if (category) shopQuery.category = category;
+    if (businessType) shopQuery.businessType = businessType;
+    const shops = await Shop.find(shopQuery).select('_id');
+    query.shop = { $in: shops.map((shop) => shop._id) };
+  }
 
   const orders = await Order.find(query)
     .populate('customer', 'name email phone')
     .populate('seller', 'name email phone')
-    .populate('shop', 'name location')
+    .populate('shop', 'name location businessType category')
     .sort({ createdAt: -1 });
 
   res.json(orders);

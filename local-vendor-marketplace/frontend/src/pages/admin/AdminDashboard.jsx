@@ -1,5 +1,5 @@
 import { Ban, Check, Plus, RotateCcw, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, shopApi, userApi } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
@@ -11,31 +11,52 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [tab, setTab] = useState('shops');
   const [categoryName, setCategoryName] = useState('');
+  const [shopFilters, setShopFilters] = useState({ category: '', status: '' });
+  const [orderFilters, setOrderFilters] = useState({ category: '', status: '' });
   const [error, setError] = useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async (nextShopFilters = shopFilters, nextOrderFilters = orderFilters) => {
     const [userRes, shopRes, orderRes, categoryRes] = await Promise.all([
       userApi.list(),
-      shopApi.adminList(),
-      orderApi.adminList(),
+      shopApi.adminList(nextShopFilters),
+      orderApi.adminList(nextOrderFilters),
       categoryApi.list()
     ]);
     setUsers(userRes.data);
     setShops(shopRes.data);
     setOrders(orderRes.data);
     setCategories(categoryRes.data);
-  };
+  }, [orderFilters, shopFilters]);
 
   useEffect(() => {
     loadData().catch((err) => setError(getApiError(err)));
-  }, []);
+  }, [loadData]);
+
+  const updateShopFilter = (key, value) => {
+    const nextFilters = { ...shopFilters, [key]: value };
+    setShopFilters(nextFilters);
+    loadData(nextFilters, orderFilters).catch((err) => setError(getApiError(err)));
+  };
+
+  const updateOrderFilter = (key, value) => {
+    const nextFilters = { ...orderFilters, [key]: value };
+    setOrderFilters(nextFilters);
+    loadData(shopFilters, nextFilters).catch((err) => setError(getApiError(err)));
+  };
 
   const updateShopStatus = async (id, status) => {
-    await shopApi.updateStatus(id, {
-      status,
-      rejectionReason: status === 'rejected' ? 'Rejected by admin review' : undefined
-    });
-    loadData();
+    setError('');
+
+    try {
+      const { data } = await shopApi.updateStatus(id, {
+        status,
+        rejectionReason: status === 'rejected' ? 'Rejected by admin review' : undefined
+      });
+
+      setShops((currentShops) => currentShops.map((shop) => (shop._id === id ? { ...shop, ...data } : shop)));
+    } catch (err) {
+      setError(getApiError(err));
+    }
   };
 
   const updateUserStatus = async (id, status) => {
@@ -97,6 +118,23 @@ export default function AdminDashboard() {
 
       {tab === 'shops' && (
         <div className="grid gap-3">
+          <div className="panel grid gap-3 sm:grid-cols-2">
+            <select className="field" value={shopFilters.category} onChange={(event) => updateShopFilter('category', event.target.value)}>
+              <option value="">All categories</option>
+              {categories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <select className="field" value={shopFilters.status} onChange={(event) => updateShopFilter('status', event.target.value)}>
+              <option value="">All shop statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
           {shops.map((shop) => (
             <article key={shop._id} className="panel space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -107,18 +145,29 @@ export default function AdminDashboard() {
                 <StatusBadge status={shop.status} />
               </div>
               <div className="flex flex-wrap gap-2">
-                <button className="btn-primary" type="button" onClick={() => updateShopStatus(shop._id, 'approved')}>
-                  <Check className="h-4 w-4" />
-                  Approve
-                </button>
-                <button className="btn-danger" type="button" onClick={() => updateShopStatus(shop._id, 'rejected')}>
-                  <X className="h-4 w-4" />
-                  Reject
-                </button>
-                <button className="btn-secondary" type="button" onClick={() => updateShopStatus(shop._id, 'suspended')}>
-                  <Ban className="h-4 w-4" />
-                  Suspend
-                </button>
+                {shop.status === 'approved' ? (
+                  <button className="btn-secondary" type="button" disabled>
+                    <Check className="h-4 w-4" />
+                    Approved
+                  </button>
+                ) : (
+                  <button className="btn-primary" type="button" onClick={() => updateShopStatus(shop._id, 'approved')}>
+                    <Check className="h-4 w-4" />
+                    Approve
+                  </button>
+                )}
+                {shop.status !== 'rejected' && shop.status !== 'approved' && (
+                  <button className="btn-danger" type="button" onClick={() => updateShopStatus(shop._id, 'rejected')}>
+                    <X className="h-4 w-4" />
+                    Reject
+                  </button>
+                )}
+                {shop.status !== 'suspended' && (
+                  <button className="btn-secondary" type="button" onClick={() => updateShopStatus(shop._id, 'suspended')}>
+                    <Ban className="h-4 w-4" />
+                    Suspend
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -151,6 +200,26 @@ export default function AdminDashboard() {
 
       {tab === 'orders' && (
         <div className="grid gap-3">
+          <div className="panel grid gap-3 sm:grid-cols-2">
+            <select className="field" value={orderFilters.category} onChange={(event) => updateOrderFilter('category', event.target.value)}>
+              <option value="">All categories</option>
+              {categories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <select className="field" value={orderFilters.status} onChange={(event) => updateOrderFilter('status', event.target.value)}>
+              <option value="">All order statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Packed">Packed</option>
+              <option value="Out for Delivery">Out for Delivery</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
           {orders.map((order) => (
             <article key={order._id} className="panel space-y-3">
               <div className="flex flex-wrap justify-between gap-3">

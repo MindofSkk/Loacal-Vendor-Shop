@@ -1,4 +1,4 @@
-import { MapPin, MessageCircle, PackagePlus, Plus, Save, Trash2 } from 'lucide-react';
+import { MapPin, MessageCircle, PackagePlus, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, productApi, shopApi } from '../../api/services';
@@ -27,9 +27,12 @@ const emptyProductForm = {
 
 const buildWhatsAppMessage = (order) => {
   const address = order.deliveryAddress || {};
-  const items = order.items.map((item) => `${item.quantity} × ${item.name}`).join('\n');
+  const deliveryIcon = '\u{1F69A}';
+  const multiply = '\u00D7';
+  const rupee = '\u20B9';
+  const items = order.items.map((item) => `${item.quantity} ${multiply} ${item.name}`).join('\n');
 
-  return `🚚 New Delivery Order
+  return `${deliveryIcon} New Delivery Order
 
 Order ID: #${order._id.slice(-6)}
 
@@ -46,7 +49,7 @@ ${address.mapUrl || 'Not shared'}
 Items:
 ${items}
 
-Total: ₹${order.subtotal}
+Total: ${rupee}${order.subtotal}
 
 Please deliver as soon as possible.`;
 };
@@ -70,6 +73,8 @@ export default function SellerDashboardV2() {
   const [orders, setOrders] = useState([]);
   const [selectedDeliveryBoys, setSelectedDeliveryBoys] = useState({});
   const [tab, setTab] = useState('shop');
+  const [isEditingShop, setIsEditingShop] = useState(false);
+  const [editingProductId, setEditingProductId] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [shopForm, setShopForm] = useState({
@@ -146,7 +151,8 @@ export default function SellerDashboardV2() {
       const { data } = await shopApi.saveMyShop({ ...shopForm, category });
       setShop(data);
       hydrateShopForm(data);
-      setMessage('Shop profile submitted for admin approval.');
+      setIsEditingShop(false);
+      setMessage(data.status === 'approved' ? 'Shop profile saved.' : 'Shop profile submitted for admin approval.');
     } catch (err) {
       setError(getApiError(err));
     }
@@ -170,9 +176,14 @@ export default function SellerDashboardV2() {
       }
 
       Array.from(productForm.images || []).forEach((file) => formData.append('images', file));
-      await productApi.create(formData);
+      if (editingProductId) {
+        await productApi.update(editingProductId, formData);
+      } else {
+        await productApi.create(formData);
+      }
       setProductForm(emptyProductForm);
-      setMessage('Product added.');
+      setEditingProductId('');
+      setMessage(editingProductId ? 'Product updated.' : 'Product added.');
       loadData();
     } catch (err) {
       setError(getApiError(err));
@@ -181,7 +192,35 @@ export default function SellerDashboardV2() {
 
   const deleteProduct = async (id) => {
     await productApi.remove(id);
+    if (editingProductId === id) {
+      setEditingProductId('');
+      setProductForm(emptyProductForm);
+    }
     loadData();
+  };
+
+  const editProduct = (product) => {
+    setEditingProductId(product._id);
+    setProductForm({
+      name: product.name || '',
+      description: product.description || '',
+      price: product.price || '',
+      stock: product.stock ?? '',
+      status: product.status || 'active',
+      brand: product.brand || '',
+      packSize: product.packSize || '',
+      vegType: product.vegType || 'Veg',
+      foodCategory: product.foodCategory || 'Snacks',
+      groceryCategory: product.groceryCategory || 'Other',
+      dairyBakeryType: product.dairyBakeryType || 'Dairy',
+      freshStockToday: product.freshStockToday ? 'true' : 'false',
+      images: null
+    });
+  };
+
+  const cancelProductEdit = () => {
+    setEditingProductId('');
+    setProductForm(emptyProductForm);
   };
 
   const updateOrderStatus = async (id, status) => {
@@ -216,8 +255,53 @@ export default function SellerDashboardV2() {
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
-      {tab === 'shop' && (
+      {tab === 'shop' && shop?.status === 'approved' && !isEditingShop && (
+        <section className="panel space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="label">{shop.businessType}</p>
+              <h2 className="text-xl font-black">{shop.name}</h2>
+              <p className="text-sm text-stone-600">{shop.description || 'No description added.'}</p>
+            </div>
+            <StatusBadge status={shop.status} />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-md bg-stone-50 p-3">
+              <p className="label">Phone</p>
+              <p className="font-bold">{shop.phone}</p>
+            </div>
+            <div className="rounded-md bg-stone-50 p-3">
+              <p className="label">Area</p>
+              <p className="font-bold">{shop.location?.area}, {shop.location?.city}</p>
+            </div>
+            <div className="rounded-md bg-stone-50 p-3">
+              <p className="label">Delivery boys</p>
+              <p className="font-bold">{shop.deliveryBoys?.length || 0}</p>
+            </div>
+          </div>
+          {shop.deliveryBoys?.length > 0 && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {shop.deliveryBoys.map((contact) => (
+                <div key={`${contact.name}-${contact.phone}`} className="rounded-md bg-stone-50 p-3 text-sm">
+                  <p className="font-bold">{contact.name}</p>
+                  <p className="text-stone-600">{contact.phone}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="btn-secondary" type="button" onClick={() => setIsEditingShop(true)}>
+            Edit profile
+          </button>
+        </section>
+      )}
+
+      {tab === 'shop' && (!shop || shop.status !== 'approved' || isEditingShop) && (
         <form className="panel grid gap-3 md:grid-cols-2" onSubmit={saveShop}>
+          {shop?.status === 'approved' && (
+            <div className="md:col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Editing core shop details may require admin approval again. Delivery boy changes can be saved without losing approval.
+            </div>
+          )}
           <input className="field" placeholder="Shop name" value={shopForm.name} onChange={(event) => setShopForm({ ...shopForm, name: event.target.value })} required />
           <input className="field" placeholder="Phone" value={shopForm.phone} onChange={(event) => setShopForm({ ...shopForm, phone: event.target.value })} required />
           <select className="field" value={shopForm.businessType} onChange={(event) => setShopForm({ ...shopForm, businessType: event.target.value })} required>
@@ -256,6 +340,14 @@ export default function SellerDashboardV2() {
             <Save className="h-4 w-4" />
             Save shop
           </button>
+          {shop?.status === 'approved' && (
+            <button className="btn-secondary md:col-span-2" type="button" onClick={() => {
+              hydrateShopForm(shop);
+              setIsEditingShop(false);
+            }}>
+              Cancel edit
+            </button>
+          )}
         </form>
       )}
 
@@ -264,7 +356,7 @@ export default function SellerDashboardV2() {
           <form className="panel h-fit space-y-3" onSubmit={createProduct}>
             <div>
               <p className="label">{activeBusinessType}</p>
-              <h2 className="text-lg font-black">Add product</h2>
+              <h2 className="text-lg font-black">{editingProductId ? 'Edit product' : 'Add product'}</h2>
             </div>
             <input className="field" placeholder={activeBusinessType === 'Restaurant' ? 'Item name' : 'Product name'} value={productForm.name} onChange={(event) => setProductForm({ ...productForm, name: event.target.value })} required />
             <textarea className="field" placeholder="Description" value={productForm.description} onChange={(event) => setProductForm({ ...productForm, description: event.target.value })} />
@@ -317,9 +409,14 @@ export default function SellerDashboardV2() {
             </select>
             <input className="field" type="file" accept="image/*" multiple onChange={(event) => setProductForm({ ...productForm, images: event.target.files })} />
             <button className="btn-primary w-full" type="submit">
-              <PackagePlus className="h-4 w-4" />
-              Add product
+              {editingProductId ? <Save className="h-4 w-4" /> : <PackagePlus className="h-4 w-4" />}
+              {editingProductId ? 'Update product' : 'Add product'}
             </button>
+            {editingProductId && (
+              <button className="btn-secondary w-full" type="button" onClick={cancelProductEdit}>
+                Cancel edit
+              </button>
+            )}
           </form>
           <div className="grid gap-3">
             {products.map((product) => (
@@ -335,10 +432,16 @@ export default function SellerDashboardV2() {
                     {product.packSize ? ` | ${product.packSize}` : ''}
                   </p>
                 </div>
-                <button className="btn-danger" type="button" onClick={() => deleteProduct(product._id)}>
-                  <Trash2 className="h-4 w-4" />
-                  Delete
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-secondary" type="button" onClick={() => editProduct(product)}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </button>
+                  <button className="btn-danger" type="button" onClick={() => deleteProduct(product._id)}>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
               </article>
             ))}
             {products.length === 0 && <p className="panel text-stone-600">No products yet.</p>}

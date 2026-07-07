@@ -15,6 +15,7 @@ export default function ProductDetailsV2() {
   const { id } = useParams();
   const { addItem } = useCart();
   const [product, setProduct] = useState(null);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +30,10 @@ export default function ProductDetailsV2() {
 
   const image = product.images?.[0]?.url;
   const orderable = isOrderable(product);
+  const handleAdd = () => {
+    const result = addItem(product);
+    setError(result?.ok === false ? result.message : '');
+  };
 
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -64,7 +69,8 @@ export default function ProductDetailsV2() {
           {product.businessType === 'Grocery / Kirana Store' && <p>{product.brand} | {product.packSize} | Stock {product.stock}</p>}
           {product.businessType === 'Dairy and Bakery' && <p>{product.dairyBakeryType} | {product.packSize} | Fresh today: {product.freshStockToday ? 'Yes' : 'No'}</p>}
         </div>
-        <button type="button" className="btn-primary" disabled={!orderable} onClick={() => addItem(product)}>
+        {error && <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{error}</p>}
+        <button type="button" className="btn-primary" disabled={!orderable} onClick={handleAdd}>
           <ShoppingCart className="h-4 w-4" />
           Add to cart
         </button>

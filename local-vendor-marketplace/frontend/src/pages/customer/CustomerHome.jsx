@@ -9,14 +9,16 @@ export default function CustomerHome() {
   const [shops, setShops] = useState([]);
   const [products, setProducts] = useState([]);
   const [filters, setFilters] = useState({ q: '', area: '', city: '', category: '' });
+  const [selectedShop, setSelectedShop] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = async (override = {}) => {
+    const nextFilters = { ...filters, ...override };
     setLoading(true);
     const [categoryRes, shopRes, productRes] = await Promise.all([
       categoryApi.list(),
-      shopApi.list(filters),
-      productApi.list({ q: filters.q, category: filters.category })
+      shopApi.list(nextFilters),
+      productApi.list({ q: nextFilters.q, category: nextFilters.category, shop: nextFilters.shop })
     ]);
     setCategories(categoryRes.data.filter((category) => category.isActive));
     setShops(shopRes.data);
@@ -43,7 +45,18 @@ export default function CustomerHome() {
 
   const handleSearch = (event) => {
     event.preventDefault();
+    setSelectedShop(null);
     loadData();
+  };
+
+  const viewShopProducts = (shop) => {
+    setSelectedShop(shop);
+    loadData({ shop: shop._id });
+  };
+
+  const clearShopFilter = () => {
+    setSelectedShop(null);
+    loadData({ shop: undefined });
   };
 
   return (
@@ -122,6 +135,9 @@ export default function CustomerHome() {
                 <MapPin className="h-4 w-4" />
                 {shop.location?.area}, {shop.location?.city}
               </p>
+              <button className="btn-secondary w-full" type="button" onClick={() => viewShopProducts(shop)}>
+                View products
+              </button>
             </article>
           ))}
           {!loading && shops.length === 0 && <p className="panel text-stone-600">No shops found.</p>}
@@ -130,7 +146,14 @@ export default function CustomerHome() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-black">Products</h2>
+          <div>
+            <h2 className="text-xl font-black">{selectedShop ? `${selectedShop.name} products` : 'Products'}</h2>
+            {selectedShop && (
+              <button className="mt-1 text-sm font-bold text-market-leaf" type="button" onClick={clearShopFilter}>
+                Show all products
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {products.map((product) => (

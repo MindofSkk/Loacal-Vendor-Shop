@@ -8,7 +8,7 @@ import { useCart } from '../../context/CartContext';
 
 export default function CartV2() {
   const { user } = useAuth();
-  const { items, subtotal, updateQuantity, removeItem, clearCart } = useCart();
+  const { items, subtotal, updateQuantity, removeItem, clearCart, cartError } = useCart();
   const navigate = useNavigate();
   const [address, setAddress] = useState({
     fullAddress: [user?.address?.line1, user?.address?.area, user?.address?.city, user?.address?.pincode]
@@ -101,6 +101,7 @@ export default function CartV2() {
       <form className="panel h-fit space-y-3" onSubmit={placeOrder}>
         <h2 className="text-xl font-black">Delivery address</h2>
         <p className="rounded-md bg-stone-50 px-3 py-2 text-sm text-stone-700">Location helps the seller deliver faster.</p>
+        {cartError && <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{cartError}</p>}
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         {locationStatus && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{locationStatus}</p>}
         <button className="btn-secondary w-full" type="button" onClick={captureLocation}>

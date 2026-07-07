@@ -21,6 +21,22 @@ const buildShopQuery = (queryParams) => {
   return query;
 };
 
+const normalizeApprovalFields = (shopLike) =>
+  JSON.stringify({
+    name: shopLike.name || '',
+    description: shopLike.description || '',
+    category: shopLike.category?.toString?.() || shopLike.category || '',
+    businessType: shopLike.businessType || '',
+    phone: shopLike.phone || '',
+    deliveryRadiusKm: Number(shopLike.deliveryRadiusKm || 5),
+    location: {
+      area: shopLike.location?.area || '',
+      city: shopLike.location?.city || '',
+      pincode: shopLike.location?.pincode || '',
+      landmark: shopLike.location?.landmark || ''
+    }
+  });
+
 export const listShops = asyncHandler(async (req, res) => {
   const shops = await Shop.find(buildShopQuery(req.query))
     .populate('category', 'name slug')
@@ -33,6 +49,8 @@ export const listShops = asyncHandler(async (req, res) => {
 export const adminListShops = asyncHandler(async (req, res) => {
   const query = {};
   if (req.query.status) query.status = req.query.status;
+  if (req.query.category) query.category = req.query.category;
+  if (req.query.businessType) query.businessType = req.query.businessType;
 
   const shops = await Shop.find(query)
     .populate('category', 'name slug')
@@ -71,7 +89,13 @@ export const createOrUpdateMyShop = asyncHandler(async (req, res) => {
   let shop;
 
   if (existingShop) {
-    Object.assign(existingShop, payload, { status: 'pending', rejectionReason: undefined });
+    const approvalFieldsChanged = normalizeApprovalFields(existingShop) !== normalizeApprovalFields(payload);
+    const nextStatus = existingShop.status === 'approved' && !approvalFieldsChanged ? 'approved' : 'pending';
+
+    Object.assign(existingShop, payload, {
+      status: nextStatus,
+      rejectionReason: nextStatus === 'pending' ? undefined : existingShop.rejectionReason
+    });
     shop = await existingShop.save();
   } else {
     shop = await Shop.create(payload);

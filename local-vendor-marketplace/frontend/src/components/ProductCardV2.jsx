@@ -1,4 +1,5 @@
 import { Package, ShoppingCart } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
@@ -11,8 +12,14 @@ const isOrderable = (product) => {
 
 export default function ProductCardV2({ product }) {
   const { addItem } = useCart();
+  const [error, setError] = useState('');
   const image = product.images?.[0]?.url;
   const orderable = isOrderable(product);
+
+  const handleAdd = () => {
+    const result = addItem(product);
+    setError(result?.ok === false ? result.message : '');
+  };
 
   return (
     <article className="panel flex h-full flex-col gap-3">
@@ -43,11 +50,12 @@ export default function ProductCardV2({ product }) {
             <p className="text-lg font-black">₹{product.price}</p>
             <p className="text-xs text-stone-500">{orderable ? 'Available' : 'Not available'}</p>
           </div>
-          <button type="button" className="btn-primary" disabled={!orderable} onClick={() => addItem(product)}>
+          <button type="button" className="btn-primary" disabled={!orderable} onClick={handleAdd}>
             <ShoppingCart className="h-4 w-4" />
             Add
           </button>
         </div>
+        {error && <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">{error}</p>}
       </div>
     </article>
   );
