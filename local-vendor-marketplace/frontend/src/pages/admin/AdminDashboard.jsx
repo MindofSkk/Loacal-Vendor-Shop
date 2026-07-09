@@ -90,19 +90,19 @@ export default function AdminDashboard() {
       <div className="grid gap-3 sm:grid-cols-4">
         <div className="panel">
           <p className="label">Users</p>
-          <p className="text-3xl font-black">{users.length}</p>
+          <p className="mt-2 text-3xl font-black text-blue-700">{users.length}</p>
         </div>
         <div className="panel">
           <p className="label">Shops</p>
-          <p className="text-3xl font-black">{shops.length}</p>
+          <p className="mt-2 text-3xl font-black text-emerald-700">{shops.length}</p>
         </div>
         <div className="panel">
           <p className="label">Orders</p>
-          <p className="text-3xl font-black">{orders.length}</p>
+          <p className="mt-2 text-3xl font-black text-violet-700">{orders.length}</p>
         </div>
         <div className="panel">
           <p className="label">Categories</p>
-          <p className="text-3xl font-black">{categories.length}</p>
+          <p className="mt-2 text-3xl font-black text-amber-600">{categories.length}</p>
         </div>
       </div>
 

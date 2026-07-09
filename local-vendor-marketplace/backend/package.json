@@ -10,7 +10,8 @@
     "build": "node --check server.js && node --check src/app.js && node scripts/check-syntax.js",
     "lint": "eslint .",
     "test": "node --test",
-    "seed": "node scripts/seedCategories.js"
+    "seed": "node scripts/seedCategories.js",
+    "seed:setup": "node scripts/seedQuickSetup.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

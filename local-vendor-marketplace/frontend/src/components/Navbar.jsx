@@ -1,78 +1,179 @@
-import { Bell, Home, LayoutDashboard, LogOut, ShoppingCart, Store, UserPlus } from 'lucide-react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  ClipboardList,
+  Heart,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  MapPinned,
+  Package,
+  Search,
+  Settings,
+  ShoppingCart,
+  Store,
+  User,
+  UserPlus
+} from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
-const linkClass = ({ isActive }) =>
-  `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
-    isActive ? 'bg-market-leaf text-white' : 'text-market-ink hover:bg-stone-100'
-  }`;
+const roleTheme = {
+  customer: {
+    badge: 'CUSTOMER WEB APP',
+    accent: 'bg-violet-700',
+    active: 'bg-violet-100 text-violet-800',
+    icon: 'text-violet-700'
+  },
+  seller: {
+    badge: 'SELLER WEB APP',
+    accent: 'bg-emerald-600',
+    active: 'bg-emerald-100 text-emerald-800',
+    icon: 'text-emerald-700'
+  },
+  admin: {
+    badge: 'ADMIN WEB APP',
+    accent: 'bg-blue-700',
+    active: 'bg-blue-100 text-blue-800',
+    icon: 'text-blue-700'
+  }
+};
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { items } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const role = user?.role || (location.pathname.startsWith('/admin') ? 'admin' : location.pathname.startsWith('/seller') ? 'seller' : 'customer');
+  const theme = roleTheme[role] || roleTheme.customer;
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
+  const navItems = [
+    { to: '/', label: 'Home', icon: Home, show: !user || user?.role === 'customer' },
+    { to: '/', label: 'Nearby Shops', icon: Store, show: role === 'customer', passive: true },
+    { to: '/cart', label: `Cart${itemCount > 0 ? ` (${itemCount})` : ''}`, icon: ShoppingCart, show: user?.role === 'customer' },
+    { to: '/orders', label: 'Orders', icon: ClipboardList, show: user?.role === 'customer' },
+    { to: '/seller', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'seller' },
+    { to: '/seller', label: 'Products', icon: Package, show: user?.role === 'seller', passive: true },
+    { to: '/seller', label: 'Business Settings', icon: Settings, show: user?.role === 'seller', passive: true },
+    { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'admin' },
+    { to: '/admin', label: 'Users', icon: User, show: user?.role === 'admin', passive: true },
+    { to: '/admin', label: 'Shops', icon: Store, show: user?.role === 'admin', passive: true },
+    { to: '/admin', label: 'Settings', icon: Settings, show: user?.role === 'admin', passive: true },
+    { to: '/login', label: 'Login', icon: User, show: !user },
+    { to: '/register', label: 'Register', icon: UserPlus, show: !user }
+  ].filter((item) => item.show);
+
+  const navClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${
+      isActive ? theme.active : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+    }`;
+
+  const passiveNavClass = 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-500';
+
   return (
-    <header className="border-b border-stone-200 bg-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <Link to="/" className="flex items-center gap-2 text-lg font-black text-market-ink">
-          <Store className="h-6 w-6 text-market-leaf" />
-          Local Vendor
+    <>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 border-r border-slate-200 bg-white/95 px-4 py-5 shadow-sm backdrop-blur lg:block">
+        <Link to="/" className="mb-8 flex items-center gap-2 text-xl font-black text-slate-950">
+          <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${theme.accent}`}>
+            <Store className="h-5 w-5 text-white" />
+          </span>
+          LocalShop
         </Link>
-        <nav className="flex flex-wrap items-center gap-2">
-          <NavLink to="/" className={linkClass}>
-            <Home className="h-4 w-4" />
-            Shops
-          </NavLink>
-          {user?.role === 'customer' && (
-            <>
-              <NavLink to="/cart" className={linkClass}>
-                <ShoppingCart className="h-4 w-4" />
-                Cart {itemCount > 0 ? `(${itemCount})` : ''}
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return item.passive ? (
+              <span key={`${item.to}-${item.label}`} className={passiveNavClass}>
+                <Icon className={`h-4 w-4 ${theme.icon}`} />
+                {item.label}
+              </span>
+            ) : (
+              <NavLink key={`${item.to}-${item.label}`} to={item.to} className={navClass}>
+                <Icon className={`h-4 w-4 ${theme.icon}`} />
+                {item.label}
               </NavLink>
-              <NavLink to="/orders" className={linkClass}>
-                <Bell className="h-4 w-4" />
-                Orders
-              </NavLink>
-            </>
-          )}
-          {user?.role === 'seller' && (
-            <NavLink to="/seller" className={linkClass}>
-              <LayoutDashboard className="h-4 w-4" />
-              Seller
-            </NavLink>
-          )}
-          {user?.role === 'admin' && (
-            <NavLink to="/admin" className={linkClass}>
-              <LayoutDashboard className="h-4 w-4" />
-              Admin
-            </NavLink>
-          )}
+            );
+          })}
+          <div className="pt-2">
+            <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-500">
+              <Heart className="h-4 w-4" />
+              Wishlist
+            </span>
+            <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-500">
+              <MapPinned className="h-4 w-4" />
+              Addresses
+            </span>
+          </div>
           {user ? (
-            <button type="button" className="btn-secondary" onClick={handleLogout}>
+            <button type="button" className="mt-4 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               Logout
             </button>
-          ) : (
-            <>
-              <NavLink to="/login" className={linkClass}>
-                Login
-              </NavLink>
-              <NavLink to="/register" className={linkClass}>
-                <UserPlus className="h-4 w-4" />
-                Register
-              </NavLink>
-            </>
-          )}
+          ) : null}
         </nav>
-      </div>
-    </header>
+      </aside>
+
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur lg:pl-60">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2 text-lg font-black text-slate-950 lg:hidden">
+              <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${theme.accent}`}>
+                <Store className="h-4 w-4 text-white" />
+              </span>
+              LocalShop
+            </Link>
+            <div className="hidden min-w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm md:flex">
+              <Search className="h-4 w-4" />
+              <span>Search for shops or products...</span>
+            </div>
+            <div className="hidden items-center gap-2 text-sm font-bold text-slate-600 xl:flex">
+              <MapPinned className={`h-4 w-4 ${theme.icon}`} />
+              <span>Bhopal, MP</span>
+            </div>
+          </div>
+
+          <div className="order-first flex justify-center sm:order-none">
+            <span className={`rounded-b-2xl rounded-t-sm px-8 py-2 text-sm font-black tracking-wide text-white shadow-md ${theme.accent}`}>
+              {theme.badge}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <nav className="flex flex-wrap items-center gap-2 lg:hidden">
+              {navItems.slice(0, 4).map((item) => {
+                const Icon = item.icon;
+                return item.passive ? (
+                  <span key={`${item.to}-${item.label}-mobile`} className={passiveNavClass}>
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </span>
+                ) : (
+                  <NavLink key={`${item.to}-${item.label}-mobile`} to={item.to} className={navClass}>
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+            </nav>
+            <div className="flex items-center gap-3">
+              <Bell className="h-5 w-5 text-slate-500" />
+              <ShoppingCart className="h-5 w-5 text-slate-500" />
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black text-white ${theme.accent}`}>
+                  {(user?.name || 'G').slice(0, 1).toUpperCase()}
+                </div>
+                <span className="hidden text-sm font-bold text-slate-700 sm:inline">{user?.name || 'Guest'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    </>
   );
 }

@@ -76,7 +76,29 @@ cp frontend/.env.example frontend/.env
 npm run seed
 ```
 
-5. Start both apps:
+5. Optional: seed quick-start admin, sellers, customers, shops, and starter products:
+
+```bash
+npm run seed:setup
+```
+
+This creates:
+
+- Admin: `admin@local.com` / `admin123`
+- Restaurant seller: `restaurant.seller@local.test` / `Setup1234`
+- Grocery seller: `grocery.seller@local.test` / `Setup1234`
+- Dairy/Bakery seller: `dairy.seller@local.test` / `Setup1234`
+- Customers:
+  - `rahul.customer@local.test` / `Setup1234`
+  - `priya.customer@local.test` / `Setup1234`
+  - `imran.customer@local.test` / `Setup1234`
+- Restaurant shop with 20 menu items
+- Grocery / Kirana shop with 50 products
+- Dairy and Bakery shop with starter fresh products
+
+The setup seed is rerunnable. It upserts setup users and shops, then replaces only those setup shops' products.
+
+6. Start both apps:
 
 ```bash
 npm run dev
@@ -86,9 +108,78 @@ Frontend: `http://localhost:5173`
 
 Backend: `http://localhost:5000/api`
 
+## Local Flow
+
+1. Customer:
+   - Open `http://localhost:5173`
+   - Browse shops and categories without logging in
+   - View shop products
+   - Login with a customer account before checkout
+   - Add products from one shop to cart
+   - Checkout with manual address or browser location
+   - View the order confirmation page and order history
+
+2. Seller:
+   - Register or login as a seller
+   - Create a shop profile
+   - Configure Business Settings: working hours, temporary closure, and delivery rules
+   - Add products for the selected business type
+   - Open the Orders tab after a customer places an order
+   - Accept/reject orders, update status, open Google Maps, or share to WhatsApp
+
+3. Admin:
+   - Login with `admin@local.com` / `admin123`
+   - Approve/reject/suspend shops
+   - View users, shops, orders, and categories
+   - Filter shops and orders by category/status
+   - Suspend or restore users
+
 ## Admin User
 
-Public registration allows `customer` and `seller` accounts only. Create the first admin directly in MongoDB or by a one-off script using the `User` model with `role: "admin"`.
+Public registration allows `customer` and `seller` accounts only. For local setup, run `npm run seed:setup` to create `admin@local.com` / `admin123`.
+
+## Shop Settings API
+
+Seller-only routes:
+
+```text
+GET /api/shops/seller/settings
+PATCH /api/shops/seller/settings
+```
+
+`PATCH` body:
+
+```json
+{
+  "workingHours": [
+    { "day": "Monday", "openTime": "09:00", "closeTime": "21:00", "closed": false }
+  ],
+  "temporaryClosure": {
+    "enabled": false,
+    "reason": "Holiday",
+    "customReason": ""
+  },
+  "deliverySettings": {
+    "radiusKm": 5,
+    "minimumOrder": 100,
+    "deliveryCharge": 20,
+    "freeDeliveryAbove": 400,
+    "estimatedDeliveryTime": "25 Minutes"
+  }
+}
+```
+
+Validation:
+
+- `radiusKm` must be greater than `0`
+- `minimumOrder`, `deliveryCharge`, and `freeDeliveryAbove` must be `0` or more
+- `estimatedDeliveryTime` is required
+
+Customer-facing shop APIs include computed fields:
+
+- `openStatus`
+- `distanceKm`
+- `deliveryEligibility`
 
 ## Useful Commands
 

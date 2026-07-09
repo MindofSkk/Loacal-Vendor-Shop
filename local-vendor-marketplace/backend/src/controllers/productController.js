@@ -91,7 +91,7 @@ export const listProducts = asyncHandler(async (req, res) => {
     .populate({
       path: 'shop',
       match: { status: 'approved' },
-      select: 'name location isOpen status businessType'
+      select: 'name location isOpen status businessType deliverySettings temporaryClosure workingHours logoUrl'
     })
     .populate('category', 'name slug')
     .sort({ createdAt: -1 });
@@ -110,7 +110,7 @@ export const listSellerProducts = asyncHandler(async (req, res) => {
 
 export const getProductById = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
-    .populate('shop', 'name location status isOpen')
+    .populate('shop', 'name location status isOpen businessType deliverySettings temporaryClosure workingHours logoUrl')
     .populate('category', 'name slug');
 
   if (!product || product.shop?.status !== 'approved') {

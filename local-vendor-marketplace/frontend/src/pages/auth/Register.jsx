@@ -1,18 +1,20 @@
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialRole = searchParams.get('role') === 'seller' ? 'seller' : 'customer';
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
-    role: 'customer',
+    role: initialRole,
     address: { line1: '', area: '', city: '', pincode: '' }
   });
   const [error, setError] = useState('');
@@ -41,6 +43,9 @@ export default function Register() {
         <div>
           <p className="label">Create account</p>
           <h1 className="text-2xl font-black">Register</h1>
+          <p className="mt-1 text-sm text-stone-600">
+            Sellers can register here and create a shop profile in the next step.
+          </p>
         </div>
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="grid gap-3 sm:grid-cols-2">

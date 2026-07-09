@@ -8,6 +8,8 @@ const orderStatuses = ['Accepted', 'Packed', 'Out for Delivery', 'Delivered', 'C
 const businessTypes = ['Restaurant', 'Grocery / Kirana Store', 'Dairy and Bakery'];
 const foodCategories = ['Starter', 'Main Course', 'Snacks', 'Drinks', 'Dessert'];
 const groceryCategories = ['Rice', 'Oil', 'Snacks', 'Cold Drinks', 'Household', 'Personal Care', 'Other'];
+const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const closureReasons = ['Holiday', 'Out of Stock', 'Personal Reason', 'Maintenance', 'Custom'];
 
 const emptyProductForm = {
   name: '',
@@ -23,6 +25,22 @@ const emptyProductForm = {
   dairyBakeryType: 'Dairy',
   freshStockToday: 'true',
   images: null
+};
+
+const defaultSettingsForm = {
+  workingHours: weekDays.map((day) => ({ day, openTime: '09:00', closeTime: '21:00', closed: false })),
+  deliverySettings: {
+    radiusKm: 5,
+    minimumOrder: 0,
+    deliveryCharge: 0,
+    freeDeliveryAbove: 0,
+    estimatedDeliveryTime: '30 Minutes'
+  },
+  temporaryClosure: {
+    enabled: false,
+    reason: 'Holiday',
+    customReason: ''
+  }
 };
 
 const buildWhatsAppMessage = (order) => {
@@ -80,20 +98,23 @@ export default function SellerDashboardV2() {
   const [shopForm, setShopForm] = useState({
     name: '',
     description: '',
+    logoUrl: '',
     category: '',
     businessType: 'Restaurant',
     phone: '',
     deliveryRadiusKm: 5,
-    location: { area: '', city: '', pincode: '', landmark: '' },
+    location: { area: '', city: '', pincode: '', landmark: '', latitude: '', longitude: '' },
     deliveryBoys: []
   });
   const [productForm, setProductForm] = useState(emptyProductForm);
+  const [settingsForm, setSettingsForm] = useState(defaultSettingsForm);
 
   const hydrateShopForm = useCallback((nextShop) => {
     if (!nextShop) return;
     setShopForm({
       name: nextShop.name || '',
       description: nextShop.description || '',
+      logoUrl: nextShop.logoUrl || '',
       category: nextShop.category?._id || nextShop.category || '',
       businessType: nextShop.businessType || 'Restaurant',
       phone: nextShop.phone || '',
@@ -102,7 +123,9 @@ export default function SellerDashboardV2() {
         area: nextShop.location?.area || '',
         city: nextShop.location?.city || '',
         pincode: nextShop.location?.pincode || '',
-        landmark: nextShop.location?.landmark || ''
+        landmark: nextShop.location?.landmark || '',
+        latitude: nextShop.location?.latitude ?? '',
+        longitude: nextShop.location?.longitude ?? ''
       },
       deliveryBoys: nextShop.deliveryBoys?.length ? nextShop.deliveryBoys : []
     });
@@ -122,9 +145,25 @@ export default function SellerDashboardV2() {
     setOrders(orderRes.data);
   }, [hydrateShopForm]);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const { data } = await shopApi.getSettings();
+      setSettingsForm({
+        workingHours: data.workingHours?.length ? data.workingHours : defaultSettingsForm.workingHours,
+        deliverySettings: { ...defaultSettingsForm.deliverySettings, ...data.deliverySettings },
+        temporaryClosure: { ...defaultSettingsForm.temporaryClosure, ...data.temporaryClosure }
+      });
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        setError(getApiError(err));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     loadData().catch((err) => setError(getApiError(err)));
-  }, [loadData]);
+    loadSettings();
+  }, [loadData, loadSettings]);
 
   const updateShopLocation = (key, value) =>
     setShopForm({ ...shopForm, location: { ...shopForm.location, [key]: value } });
@@ -148,7 +187,10 @@ export default function SellerDashboardV2() {
 
     try {
       const category = categories.find((item) => item.name === shopForm.businessType)?._id || shopForm.category;
-      const { data } = await shopApi.saveMyShop({ ...shopForm, category });
+      const location = { ...shopForm.location };
+      if (location.latitude === '') delete location.latitude;
+      if (location.longitude === '') delete location.longitude;
+      const { data } = await shopApi.saveMyShop({ ...shopForm, location, category });
       setShop(data);
       hydrateShopForm(data);
       setIsEditingShop(false);
@@ -233,6 +275,42 @@ export default function SellerDashboardV2() {
   };
 
   const activeBusinessType = shop?.businessType || shopForm.businessType;
+  const visibleOrders = [...orders].sort((first, second) => {
+    if (first.status === 'Pending' && second.status !== 'Pending') return -1;
+    if (first.status !== 'Pending' && second.status === 'Pending') return 1;
+    return new Date(second.createdAt) - new Date(first.createdAt);
+  });
+  const newOrderCount = orders.filter((order) => order.status === 'Pending').length;
+  const activeOrderCount = orders.filter((order) => ['Pending', 'Accepted', 'Packed', 'Out for Delivery'].includes(order.status)).length;
+  const completedOrderCount = orders.filter((order) => order.status === 'Delivered').length;
+  const totalRevenue = orders
+    .filter((order) => order.status === 'Delivered')
+    .reduce((sum, order) => sum + Number(order.subtotal || 0), 0);
+
+  const updateWorkingHour = (index, key, value) => {
+    const workingHours = [...settingsForm.workingHours];
+    workingHours[index] = { ...workingHours[index], [key]: value };
+    setSettingsForm({ ...settingsForm, workingHours });
+  };
+
+  const saveSettings = async (event) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+
+    try {
+      const { data } = await shopApi.updateSettings(settingsForm);
+      setSettingsForm({
+        workingHours: data.workingHours,
+        deliverySettings: data.deliverySettings,
+        temporaryClosure: data.temporaryClosure
+      });
+      await loadData();
+      setMessage('Business settings saved.');
+    } catch (err) {
+      setError(getApiError(err));
+    }
+  };
 
   return (
     <section className="space-y-5">
@@ -245,11 +323,30 @@ export default function SellerDashboardV2() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {['shop', 'products', 'orders'].map((item) => (
+        {['shop', 'settings', 'products', 'orders'].map((item) => (
           <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => setTab(item)}>
             {item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="panel">
+          <p className="label">New Orders</p>
+          <p className="mt-2 text-3xl font-black text-emerald-700">{newOrderCount}</p>
+        </div>
+        <div className="panel">
+          <p className="label">Active Orders</p>
+          <p className="mt-2 text-3xl font-black text-amber-600">{activeOrderCount}</p>
+        </div>
+        <div className="panel">
+          <p className="label">Completed Orders</p>
+          <p className="mt-2 text-3xl font-black text-blue-700">{completedOrderCount}</p>
+        </div>
+        <div className="panel">
+          <p className="label">Revenue</p>
+          <p className="mt-2 text-3xl font-black text-slate-950">₹{totalRevenue}</p>
+        </div>
       </div>
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -297,25 +394,69 @@ export default function SellerDashboardV2() {
 
       {tab === 'shop' && (!shop || shop.status !== 'approved' || isEditingShop) && (
         <form className="panel grid gap-3 md:grid-cols-2" onSubmit={saveShop}>
+          <div className="md:col-span-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Fill these basic details to create a shop profile in under 2 minutes.
+          </div>
           {shop?.status === 'approved' && (
             <div className="md:col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
               Editing core shop details may require admin approval again. Delivery boy changes can be saved without losing approval.
             </div>
           )}
-          <input className="field" placeholder="Shop name" value={shopForm.name} onChange={(event) => setShopForm({ ...shopForm, name: event.target.value })} required />
-          <input className="field" placeholder="Phone" value={shopForm.phone} onChange={(event) => setShopForm({ ...shopForm, phone: event.target.value })} required />
-          <select className="field" value={shopForm.businessType} onChange={(event) => setShopForm({ ...shopForm, businessType: event.target.value })} required>
-            {businessTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-          <input className="field" type="number" min="1" max="25" placeholder="Delivery radius" value={shopForm.deliveryRadiusKm} onChange={(event) => setShopForm({ ...shopForm, deliveryRadiusKm: event.target.value })} />
-          <input className="field md:col-span-2" placeholder="Description" value={shopForm.description} onChange={(event) => setShopForm({ ...shopForm, description: event.target.value })} />
+          <label>
+            <span className="label">Shop name</span>
+            <input className="field mt-1" placeholder="Example: Spice Junction" value={shopForm.name} onChange={(event) => setShopForm({ ...shopForm, name: event.target.value })} required />
+            <span className="mt-1 block text-xs text-stone-500">Customers will see this name on the home page.</span>
+          </label>
+          <label>
+            <span className="label">Shop phone</span>
+            <input className="field mt-1" placeholder="10 digit mobile number" value={shopForm.phone} onChange={(event) => setShopForm({ ...shopForm, phone: event.target.value })} required />
+            <span className="mt-1 block text-xs text-stone-500">Used by customers and delivery staff for order coordination.</span>
+          </label>
+          <label>
+            <span className="label">Business type</span>
+            <select className="field mt-1" value={shopForm.businessType} onChange={(event) => setShopForm({ ...shopForm, businessType: event.target.value })} required>
+              {businessTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-stone-500">This controls which product fields appear.</span>
+          </label>
+          <label>
+            <span className="label">Delivery radius</span>
+            <input className="field mt-1" type="number" min="1" max="25" placeholder="5" value={shopForm.deliveryRadiusKm} onChange={(event) => setShopForm({ ...shopForm, deliveryRadiusKm: event.target.value })} />
+            <span className="mt-1 block text-xs text-stone-500">Keep 3-8 km for a focused local delivery area.</span>
+          </label>
+          <label className="md:col-span-2">
+            <span className="label">Description</span>
+            <input className="field mt-1" placeholder="Short shop description" value={shopForm.description} onChange={(event) => setShopForm({ ...shopForm, description: event.target.value })} />
+            <span className="mt-1 block text-xs text-stone-500">One line about what the shop sells.</span>
+          </label>
+          <label className="md:col-span-2">
+            <span className="label">Shop logo URL</span>
+            <input className="field mt-1" placeholder="https://example.com/logo.png" value={shopForm.logoUrl} onChange={(event) => setShopForm({ ...shopForm, logoUrl: event.target.value })} />
+            <span className="mt-1 block text-xs text-stone-500">Optional image URL shown on customer shop cards.</span>
+          </label>
           {['area', 'city', 'pincode', 'landmark'].map((field) => (
-            <input key={field} className="field" placeholder={field} value={shopForm.location[field]} onChange={(event) => updateShopLocation(field, event.target.value)} required={field !== 'landmark'} />
+            <label key={field}>
+              <span className="label">{field}</span>
+              <input className="field mt-1" placeholder={field} value={shopForm.location[field]} onChange={(event) => updateShopLocation(field, event.target.value)} required={field !== 'landmark'} />
+              <span className="mt-1 block text-xs text-stone-500">
+                {field === 'landmark' ? 'Optional but useful for local delivery.' : 'Required for nearby shop discovery.'}
+              </span>
+            </label>
           ))}
+          <label>
+            <span className="label">Latitude</span>
+            <input className="field mt-1" placeholder="Optional, e.g. 28.6139" value={shopForm.location.latitude} onChange={(event) => updateShopLocation('latitude', event.target.value)} />
+            <span className="mt-1 block text-xs text-stone-500">Needed for automatic delivery radius checks.</span>
+          </label>
+          <label>
+            <span className="label">Longitude</span>
+            <input className="field mt-1" placeholder="Optional, e.g. 77.2090" value={shopForm.location.longitude} onChange={(event) => updateShopLocation('longitude', event.target.value)} />
+            <span className="mt-1 block text-xs text-stone-500">Needed for distance and delivery radius checks.</span>
+          </label>
           <div className="md:col-span-2">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-black">Delivery boys</h2>
@@ -347,6 +488,88 @@ export default function SellerDashboardV2() {
             }}>
               Cancel edit
             </button>
+          )}
+        </form>
+      )}
+
+      {tab === 'settings' && (
+        <form className="space-y-4" onSubmit={saveSettings}>
+          {!shop && <p className="panel text-stone-600">Create a shop profile before editing business settings.</p>}
+          {shop && (
+            <>
+              <section className="panel space-y-3">
+                <div>
+                  <p className="label">Business Settings</p>
+                  <h2 className="text-xl font-black">Working Hours</h2>
+                </div>
+                <div className="grid gap-3">
+                  {settingsForm.workingHours.map((entry, index) => (
+                    <div key={entry.day} className="grid gap-2 rounded-md bg-stone-50 p-3 md:grid-cols-[140px_1fr_1fr_auto] md:items-center">
+                      <p className="font-bold">{entry.day}</p>
+                      <input className="field" type="time" value={entry.openTime} disabled={entry.closed} onChange={(event) => updateWorkingHour(index, 'openTime', event.target.value)} />
+                      <input className="field" type="time" value={entry.closeTime} disabled={entry.closed} onChange={(event) => updateWorkingHour(index, 'closeTime', event.target.value)} />
+                      <label className="flex items-center gap-2 text-sm font-bold">
+                        <input type="checkbox" checked={entry.closed} onChange={(event) => updateWorkingHour(index, 'closed', event.target.checked)} />
+                        Closed
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="panel grid gap-3 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <p className="label">Delivery Settings</p>
+                  <h2 className="text-xl font-black">Delivery Rules</h2>
+                </div>
+                <label>
+                  <span className="label">Delivery Radius (KM)</span>
+                  <input className="field mt-1" type="number" min="0.1" step="0.1" value={settingsForm.deliverySettings.radiusKm} onChange={(event) => setSettingsForm({ ...settingsForm, deliverySettings: { ...settingsForm.deliverySettings, radiusKm: event.target.value } })} required />
+                </label>
+                <label>
+                  <span className="label">Minimum Order</span>
+                  <input className="field mt-1" type="number" min="0" value={settingsForm.deliverySettings.minimumOrder} onChange={(event) => setSettingsForm({ ...settingsForm, deliverySettings: { ...settingsForm.deliverySettings, minimumOrder: event.target.value } })} required />
+                </label>
+                <label>
+                  <span className="label">Delivery Charge</span>
+                  <input className="field mt-1" type="number" min="0" value={settingsForm.deliverySettings.deliveryCharge} onChange={(event) => setSettingsForm({ ...settingsForm, deliverySettings: { ...settingsForm.deliverySettings, deliveryCharge: event.target.value } })} required />
+                </label>
+                <label>
+                  <span className="label">Free Delivery Above</span>
+                  <input className="field mt-1" type="number" min="0" value={settingsForm.deliverySettings.freeDeliveryAbove} onChange={(event) => setSettingsForm({ ...settingsForm, deliverySettings: { ...settingsForm.deliverySettings, freeDeliveryAbove: event.target.value } })} required />
+                </label>
+                <label className="md:col-span-2">
+                  <span className="label">Estimated Delivery Time</span>
+                  <input className="field mt-1" placeholder="25 Minutes" value={settingsForm.deliverySettings.estimatedDeliveryTime} onChange={(event) => setSettingsForm({ ...settingsForm, deliverySettings: { ...settingsForm.deliverySettings, estimatedDeliveryTime: event.target.value } })} required />
+                </label>
+              </section>
+
+              <section className="panel grid gap-3 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <p className="label">Temporary Closure</p>
+                  <h2 className="text-xl font-black">Close Shop Temporarily</h2>
+                </div>
+                <label className="flex items-center gap-2 font-bold">
+                  <input type="checkbox" checked={settingsForm.temporaryClosure.enabled} onChange={(event) => setSettingsForm({ ...settingsForm, temporaryClosure: { ...settingsForm.temporaryClosure, enabled: event.target.checked } })} />
+                  Temporarily Closed
+                </label>
+                <select className="field" value={settingsForm.temporaryClosure.reason} onChange={(event) => setSettingsForm({ ...settingsForm, temporaryClosure: { ...settingsForm.temporaryClosure, reason: event.target.value } })}>
+                  {closureReasons.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {reason}
+                    </option>
+                  ))}
+                </select>
+                {settingsForm.temporaryClosure.reason === 'Custom' && (
+                  <input className="field md:col-span-2" placeholder="Custom reason" value={settingsForm.temporaryClosure.customReason || ''} onChange={(event) => setSettingsForm({ ...settingsForm, temporaryClosure: { ...settingsForm.temporaryClosure, customReason: event.target.value } })} />
+                )}
+              </section>
+
+              <button className="btn-primary w-full" type="submit">
+                <Save className="h-4 w-4" />
+                Save business settings
+              </button>
+            </>
           )}
         </form>
       )}
@@ -451,12 +674,13 @@ export default function SellerDashboardV2() {
 
       {tab === 'orders' && (
         <div className="grid gap-3">
-          {orders.map((order) => (
-            <article key={order._id} className="panel space-y-3">
+          {visibleOrders.map((order) => (
+            <article key={order._id} className={`panel space-y-3 ${order.status === 'Pending' ? 'border-market-leaf ring-2 ring-market-leaf/20' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="label">{order.customer?.name}</p>
+                  <p className="label">{order.status === 'Pending' ? 'New order' : order.customer?.name}</p>
                   <h3 className="font-black">Order #{order._id.slice(-6)}</h3>
+                  {order.status === 'Pending' && <p className="text-sm font-bold text-market-leaf">{order.customer?.name}</p>}
                   <p className="text-sm text-stone-600">{order.deliveryAddress?.phone || order.customer?.phone}</p>
                 </div>
                 <StatusBadge status={order.status} />

@@ -4,6 +4,7 @@ import { Product } from '../models/Product.js';
 import { Shop } from '../models/Shop.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { getDeliveryEligibility, getOpenStatus } from '../utils/shopStatus.js';
 
 const statusFlow = {
   Pending: ['Accepted', 'Rejected', 'Cancelled'],
@@ -44,6 +45,12 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   if (!shop || shop.status !== 'approved') {
     throw new ApiError(400, 'Shop is not available for orders');
+  }
+
+  const openStatus = getOpenStatus(shop);
+
+  if (!openStatus.isOpenNow) {
+    throw new ApiError(400, openStatus.message || 'Shop is closed right now');
   }
 
   const normalizedDeliveryAddress = {
@@ -87,6 +94,17 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  if (subtotal < Number(shop.deliverySettings?.minimumOrder || 0)) {
+    throw new ApiError(400, `Minimum order amount is ₹${shop.deliverySettings.minimumOrder}`);
+  }
+
+  const deliveryEligibility = getDeliveryEligibility(shop, normalizedDeliveryAddress);
+
+  if (!deliveryEligibility.canDeliver) {
+    throw new ApiError(400, 'This shop does not deliver to your location');
+  }
+
   const order = await Order.create({
     customer: req.user._id,
     seller: sellerId,

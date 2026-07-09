@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 export const BUSINESS_TYPES = ['Restaurant', 'Grocery / Kirana Store', 'Dairy and Bakery'];
+export const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const CLOSURE_REASONS = ['Holiday', 'Out of Stock', 'Personal Reason', 'Maintenance', 'Custom'];
 
 const locationSchema = new mongoose.Schema(
   {
@@ -29,6 +31,79 @@ const locationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const workingHourSchema = new mongoose.Schema(
+  {
+    day: {
+      type: String,
+      enum: WEEK_DAYS,
+      required: true
+    },
+    openTime: {
+      type: String,
+      default: '09:00'
+    },
+    closeTime: {
+      type: String,
+      default: '21:00'
+    },
+    closed: {
+      type: Boolean,
+      default: false
+    }
+  },
+  { _id: false }
+);
+
+const deliverySettingsSchema = new mongoose.Schema(
+  {
+    radiusKm: {
+      type: Number,
+      default: 5,
+      min: 0.1
+    },
+    minimumOrder: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    deliveryCharge: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    freeDeliveryAbove: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    estimatedDeliveryTime: {
+      type: String,
+      default: '30 Minutes',
+      trim: true
+    }
+  },
+  { _id: false }
+);
+
+const temporaryClosureSchema = new mongoose.Schema(
+  {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    reason: {
+      type: String,
+      enum: CLOSURE_REASONS,
+      default: 'Holiday'
+    },
+    customReason: {
+      type: String,
+      trim: true
+    }
+  },
+  { _id: false }
+);
+
 const shopSchema = new mongoose.Schema(
   {
     owner: {
@@ -43,6 +118,10 @@ const shopSchema = new mongoose.Schema(
       trim: true
     },
     description: {
+      type: String,
+      trim: true
+    },
+    logoUrl: {
       type: String,
       trim: true
     },
@@ -71,6 +150,18 @@ const shopSchema = new mongoose.Schema(
       default: 5,
       min: 1,
       max: 25
+    },
+    workingHours: {
+      type: [workingHourSchema],
+      default: () => WEEK_DAYS.map((day) => ({ day }))
+    },
+    deliverySettings: {
+      type: deliverySettingsSchema,
+      default: () => ({})
+    },
+    temporaryClosure: {
+      type: temporaryClosureSchema,
+      default: () => ({})
     },
     status: {
       type: String,

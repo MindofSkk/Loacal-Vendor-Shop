@@ -2,6 +2,7 @@ import { Notification } from '../models/Notification.js';
 import { Shop } from '../models/Shop.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { decorateShopForCustomer, defaultWorkingHours } from '../utils/shopStatus.js';
 
 const buildShopQuery = (queryParams) => {
   const { q, area, city, category, status } = queryParams;
@@ -21,6 +22,11 @@ const buildShopQuery = (queryParams) => {
   return query;
 };
 
+const getCustomerLocation = (queryParams) => ({
+  latitude: queryParams.latitude,
+  longitude: queryParams.longitude
+});
+
 const normalizeApprovalFields = (shopLike) =>
   JSON.stringify({
     name: shopLike.name || '',
@@ -28,12 +34,15 @@ const normalizeApprovalFields = (shopLike) =>
     category: shopLike.category?.toString?.() || shopLike.category || '',
     businessType: shopLike.businessType || '',
     phone: shopLike.phone || '',
+    logoUrl: shopLike.logoUrl || '',
     deliveryRadiusKm: Number(shopLike.deliveryRadiusKm || 5),
     location: {
       area: shopLike.location?.area || '',
       city: shopLike.location?.city || '',
       pincode: shopLike.location?.pincode || '',
-      landmark: shopLike.location?.landmark || ''
+      landmark: shopLike.location?.landmark || '',
+      latitude: shopLike.location?.latitude == null ? '' : Number(shopLike.location.latitude),
+      longitude: shopLike.location?.longitude == null ? '' : Number(shopLike.location.longitude)
     }
   });
 
@@ -43,7 +52,7 @@ export const listShops = asyncHandler(async (req, res) => {
     .populate('owner', 'name email phone')
     .sort({ createdAt: -1 });
 
-  res.json(shops);
+  res.json(shops.map((shop) => decorateShopForCustomer(shop, getCustomerLocation(req.query))));
 });
 
 export const adminListShops = asyncHandler(async (req, res) => {
@@ -69,7 +78,7 @@ export const getShopById = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Shop not found');
   }
 
-  res.json(shop);
+  res.json(decorateShopForCustomer(shop));
 });
 
 export const getMyShop = asyncHandler(async (req, res) => {
@@ -102,6 +111,57 @@ export const createOrUpdateMyShop = asyncHandler(async (req, res) => {
   }
 
   res.status(existingShop ? 200 : 201).json(shop);
+});
+
+export const getMyShopSettings = asyncHandler(async (req, res) => {
+  const shop = await Shop.findOne({ owner: req.user._id }).select(
+    'workingHours deliverySettings temporaryClosure location deliveryRadiusKm'
+  );
+
+  if (!shop) {
+    throw new ApiError(404, 'Create a shop profile before managing business settings');
+  }
+
+  if (!shop.workingHours?.length) {
+    shop.workingHours = defaultWorkingHours();
+    await shop.save();
+  }
+
+  res.json({
+    workingHours: shop.workingHours,
+    deliverySettings: shop.deliverySettings,
+    temporaryClosure: shop.temporaryClosure
+  });
+});
+
+export const updateMyShopSettings = asyncHandler(async (req, res) => {
+  const shop = await Shop.findOne({ owner: req.user._id });
+
+  if (!shop) {
+    throw new ApiError(404, 'Create a shop profile before managing business settings');
+  }
+
+  shop.workingHours = req.body.workingHours;
+  shop.deliverySettings = {
+    radiusKm: Number(req.body.deliverySettings.radiusKm),
+    minimumOrder: Number(req.body.deliverySettings.minimumOrder),
+    deliveryCharge: Number(req.body.deliverySettings.deliveryCharge),
+    freeDeliveryAbove: Number(req.body.deliverySettings.freeDeliveryAbove),
+    estimatedDeliveryTime: req.body.deliverySettings.estimatedDeliveryTime
+  };
+  shop.temporaryClosure = {
+    enabled: Boolean(req.body.temporaryClosure?.enabled),
+    reason: req.body.temporaryClosure?.reason,
+    customReason: req.body.temporaryClosure?.customReason
+  };
+
+  await shop.save();
+
+  res.json({
+    workingHours: shop.workingHours,
+    deliverySettings: shop.deliverySettings,
+    temporaryClosure: shop.temporaryClosure
+  });
 });
 
 export const updateShopStatus = asyncHandler(async (req, res) => {

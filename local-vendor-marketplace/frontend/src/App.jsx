@@ -7,6 +7,7 @@ import Register from './pages/auth/Register';
 import Cart from './pages/customer/CartV2';
 import CustomerHome from './pages/customer/CustomerHome';
 import Orders from './pages/customer/OrdersV2';
+import OrderConfirmation from './pages/customer/OrderConfirmation';
 import ProductDetails from './pages/customer/ProductDetailsV2';
 import SellerDashboard from './pages/seller/SellerDashboardV2';
 import { useAuth } from './context/AuthContext';
@@ -22,9 +23,9 @@ const DashboardRedirect = () => {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#f7f5ef]">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="max-w-[1480px] px-4 py-5 sm:px-6 lg:ml-60 lg:max-w-none lg:px-6">
         <Routes>
           <Route path="/" element={<CustomerHome />} />
           <Route path="/products/:id" element={<ProductDetails />} />
@@ -44,6 +45,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['customer']}>
                 <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/order-confirmation"
+            element={
+              <ProtectedRoute roles={['customer']}>
+                <OrderConfirmation />
               </ProtectedRoute>
             }
           />

@@ -6,9 +6,33 @@ import { useCart } from '../../context/CartContext';
 
 const isOrderable = (product) => {
   if (product.status !== 'active') return false;
+  if (product.shop?.temporaryClosure?.enabled) return false;
+  if (!isShopOpenNow(product.shop)) return false;
   if (product.businessType === 'Grocery / Kirana Store') return product.stock > 0;
   if (product.businessType === 'Dairy and Bakery') return product.freshStockToday;
   return true;
+};
+
+const minutesFromTime = (time) => {
+  const [hours, minutes] = String(time || '00:00')
+    .split(':')
+    .map(Number);
+  return hours * 60 + minutes;
+};
+
+const isShopOpenNow = (shop) => {
+  if (!shop?.workingHours?.length) return true;
+  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayHours = shop.workingHours.find((entry) => entry.day === dayName);
+  if (!todayHours) return true;
+  if (todayHours.closed) return false;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const openMinutes = minutesFromTime(todayHours.openTime);
+  const closeMinutes = minutesFromTime(todayHours.closeTime);
+  return openMinutes <= closeMinutes
+    ? currentMinutes >= openMinutes && currentMinutes <= closeMinutes
+    : currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
 };
 
 export default function ProductDetailsV2() {
@@ -57,7 +81,7 @@ export default function ProductDetailsV2() {
           </div>
           <div className="rounded-md bg-stone-50 p-3">
             <p className="label">Availability</p>
-            <p className="font-bold">{orderable ? 'Available' : 'Not available'}</p>
+            <p className="font-bold">{product.shop?.temporaryClosure?.enabled ? 'Shop temporarily closed' : orderable ? 'Available' : 'Not available'}</p>
           </div>
           <div className="rounded-md bg-stone-50 p-3">
             <p className="label">Area</p>

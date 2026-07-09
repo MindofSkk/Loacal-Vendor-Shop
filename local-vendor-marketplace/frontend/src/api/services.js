@@ -19,6 +19,8 @@ export const shopApi = {
   adminList: (params) => api.get('/shops/admin/all', { params }),
   myShop: () => api.get('/shops/seller/me'),
   saveMyShop: (payload) => api.post('/shops/seller/me', payload),
+  getSettings: () => api.get('/shops/seller/settings'),
+  updateSettings: (payload) => api.patch('/shops/seller/settings', payload),
   updateStatus: (id, payload) => api.patch(`/shops/admin/${id}/status`, payload)
 };
 
