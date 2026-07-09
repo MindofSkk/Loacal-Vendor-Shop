@@ -1,19 +1,36 @@
 import { Ban, Check, Plus, RotateCcw, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, shopApi, userApi } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
 
+const includesText = (value, query) => String(value || '').toLowerCase().includes(query);
+const sectionToTab = {
+  dashboard: 'shops',
+  shops: 'shops',
+  users: 'users',
+  orders: 'orders',
+  categories: 'categories',
+  settings: 'settings'
+};
+
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const { section } = useParams();
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [shops, setShops] = useState([]);
   const [orders, setOrders] = useState([]);
   const [categories, setCategories] = useState([]);
   const [tab, setTab] = useState('shops');
   const [categoryName, setCategoryName] = useState('');
+  const [search, setSearch] = useState('');
   const [shopFilters, setShopFilters] = useState({ category: '', status: '' });
   const [orderFilters, setOrderFilters] = useState({ category: '', status: '' });
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [actionLoading, setActionLoading] = useState('');
 
   const loadData = useCallback(async (nextShopFilters = shopFilters, nextOrderFilters = orderFilters) => {
     const [userRes, shopRes, orderRes, categoryRes] = await Promise.all([
@@ -32,6 +49,16 @@ export default function AdminDashboard() {
     loadData().catch((err) => setError(getApiError(err)));
   }, [loadData]);
 
+  useEffect(() => {
+    setTab(sectionToTab[section || 'dashboard'] || 'shops');
+    setSearch(searchParams.get('q') || '');
+  }, [section, searchParams]);
+
+  const navigateAdminTab = (nextTab) => {
+    const params = new URLSearchParams(searchParams);
+    navigate(`/admin/${nextTab === 'shops' ? 'shops' : nextTab}${params.toString() ? `?${params.toString()}` : ''}`);
+  };
+
   const updateShopFilter = (key, value) => {
     const nextFilters = { ...shopFilters, [key]: value };
     setShopFilters(nextFilters);
@@ -46,6 +73,8 @@ export default function AdminDashboard() {
 
   const updateShopStatus = async (id, status) => {
     setError('');
+    setMessage('');
+    setActionLoading(`shop-${id}-${status}`);
 
     try {
       const { data } = await shopApi.updateStatus(id, {
@@ -54,31 +83,113 @@ export default function AdminDashboard() {
       });
 
       setShops((currentShops) => currentShops.map((shop) => (shop._id === id ? { ...shop, ...data } : shop)));
+      setMessage(`Shop ${status}.`);
     } catch (err) {
       setError(getApiError(err));
+    } finally {
+      setActionLoading('');
     }
   };
 
   const updateUserStatus = async (id, status) => {
-    await userApi.updateStatus(id, { status });
-    loadData();
+    setError('');
+    setMessage('');
+    setActionLoading(`user-${id}`);
+
+    try {
+      const { data } = await userApi.updateStatus(id, { status });
+      setUsers((currentUsers) => currentUsers.map((user) => (user._id === id ? data : user)));
+      setMessage(`User ${status}.`);
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
+    }
   };
 
   const addCategory = async (event) => {
     event.preventDefault();
-    await categoryApi.create({ name: categoryName });
-    setCategoryName('');
-    loadData();
+    setError('');
+    setMessage('');
+    setActionLoading('category-create');
+
+    try {
+      const { data } = await categoryApi.create({ name: categoryName });
+      setCategories((currentCategories) => [data, ...currentCategories]);
+      setCategoryName('');
+      setMessage('Category added.');
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
+    }
   };
 
   const toggleCategory = async (category) => {
-    await categoryApi.update(category._id, {
-      name: category.name,
-      description: category.description,
-      isActive: !category.isActive
-    });
-    loadData();
+    setError('');
+    setMessage('');
+    setActionLoading(`category-${category._id}`);
+
+    try {
+      const { data } = await categoryApi.update(category._id, {
+        name: category.name,
+        description: category.description,
+        isActive: !category.isActive
+      });
+      setCategories((currentCategories) => currentCategories.map((item) => (item._id === category._id ? data : item)));
+      setMessage(`Category ${data.isActive ? 'activated' : 'deactivated'}.`);
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
+    }
   };
+
+  const query = search.trim().toLowerCase();
+  const visibleShops = useMemo(
+    () =>
+      shops.filter(
+        (shop) =>
+          !query ||
+          includesText(shop.name, query) ||
+          includesText(shop.owner?.name, query) ||
+          includesText(shop.owner?.email, query) ||
+          includesText(shop.status, query) ||
+          includesText(shop.location?.area, query) ||
+          includesText(shop.location?.city, query)
+      ),
+    [query, shops]
+  );
+  const visibleUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          !query ||
+          includesText(user.name, query) ||
+          includesText(user.email, query) ||
+          includesText(user.phone, query) ||
+          includesText(user.role, query) ||
+          includesText(user.status, query)
+      ),
+    [query, users]
+  );
+  const visibleOrders = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          !query ||
+          includesText(order._id, query) ||
+          includesText(order.customer?.name, query) ||
+          includesText(order.customer?.email, query) ||
+          includesText(order.shop?.name, query) ||
+          includesText(order.status, query)
+      ),
+    [orders, query]
+  );
+  const visibleCategories = useMemo(
+    () => categories.filter((category) => !query || includesText(category.name, query) || includesText(category.slug, query)),
+    [categories, query]
+  );
 
   return (
     <section className="space-y-5">
@@ -108,13 +219,21 @@ export default function AdminDashboard() {
 
       <div className="flex flex-wrap gap-2">
         {['shops', 'users', 'orders', 'categories'].map((item) => (
-          <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => setTab(item)}>
+          <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => navigateAdminTab(item)}>
             {item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
       </div>
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
+
+      <input
+        className="field"
+        placeholder="Search users, shops, orders, or categories"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
 
       {tab === 'shops' && (
         <div className="grid gap-3">
@@ -135,7 +254,7 @@ export default function AdminDashboard() {
               <option value="suspended">Suspended</option>
             </select>
           </div>
-          {shops.map((shop) => (
+          {visibleShops.map((shop) => (
             <article key={shop._id} className="panel space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -151,32 +270,33 @@ export default function AdminDashboard() {
                     Approved
                   </button>
                 ) : (
-                  <button className="btn-primary" type="button" onClick={() => updateShopStatus(shop._id, 'approved')}>
+                  <button className="btn-primary" type="button" disabled={actionLoading === `shop-${shop._id}-approved`} onClick={() => updateShopStatus(shop._id, 'approved')}>
                     <Check className="h-4 w-4" />
-                    Approve
+                    {actionLoading === `shop-${shop._id}-approved` ? 'Updating...' : shop.status === 'suspended' ? 'Activate' : 'Approve'}
                   </button>
                 )}
                 {shop.status !== 'rejected' && shop.status !== 'approved' && (
-                  <button className="btn-danger" type="button" onClick={() => updateShopStatus(shop._id, 'rejected')}>
+                  <button className="btn-danger" type="button" disabled={actionLoading === `shop-${shop._id}-rejected`} onClick={() => updateShopStatus(shop._id, 'rejected')}>
                     <X className="h-4 w-4" />
-                    Reject
+                    {actionLoading === `shop-${shop._id}-rejected` ? 'Rejecting...' : 'Reject'}
                   </button>
                 )}
                 {shop.status !== 'suspended' && (
-                  <button className="btn-secondary" type="button" onClick={() => updateShopStatus(shop._id, 'suspended')}>
+                  <button className="btn-secondary" type="button" disabled={actionLoading === `shop-${shop._id}-suspended`} onClick={() => updateShopStatus(shop._id, 'suspended')}>
                     <Ban className="h-4 w-4" />
-                    Suspend
+                    {actionLoading === `shop-${shop._id}-suspended` ? 'Suspending...' : 'Suspend'}
                   </button>
                 )}
               </div>
             </article>
           ))}
+          {visibleShops.length === 0 && <p className="panel text-stone-600">No shops found.</p>}
         </div>
       )}
 
       {tab === 'users' && (
         <div className="grid gap-3">
-          {users.map((user) => (
+          {visibleUsers.map((user) => (
             <article key={user._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -188,13 +308,15 @@ export default function AdminDashboard() {
               <button
                 className={user.status === 'active' ? 'btn-danger' : 'btn-secondary'}
                 type="button"
+                disabled={actionLoading === `user-${user._id}`}
                 onClick={() => updateUserStatus(user._id, user.status === 'active' ? 'suspended' : 'active')}
               >
                 {user.status === 'active' ? <Ban className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
-                {user.status === 'active' ? 'Suspend' : 'Restore'}
+                {actionLoading === `user-${user._id}` ? 'Updating...' : user.status === 'active' ? 'Suspend' : 'Restore'}
               </button>
             </article>
           ))}
+          {visibleUsers.length === 0 && <p className="panel text-stone-600">No users found.</p>}
         </div>
       )}
 
@@ -220,7 +342,7 @@ export default function AdminDashboard() {
               <option value="Rejected">Rejected</option>
             </select>
           </div>
-          {orders.map((order) => (
+          {visibleOrders.map((order) => (
             <article key={order._id} className="panel space-y-3">
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
@@ -232,6 +354,7 @@ export default function AdminDashboard() {
               <p className="text-lg font-black">₹{order.subtotal}</p>
             </article>
           ))}
+          {visibleOrders.length === 0 && <p className="panel text-stone-600">No orders found.</p>}
         </div>
       )}
 
@@ -240,24 +363,35 @@ export default function AdminDashboard() {
           <form className="panel h-fit space-y-3" onSubmit={addCategory}>
             <h2 className="text-lg font-black">Add category</h2>
             <input className="field" placeholder="Category name" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required />
-            <button className="btn-primary w-full" type="submit">
+            <button className="btn-primary w-full" type="submit" disabled={actionLoading === 'category-create'}>
               <Plus className="h-4 w-4" />
-              Add
+              {actionLoading === 'category-create' ? 'Adding...' : 'Add'}
             </button>
           </form>
           <div className="grid gap-3">
-            {categories.map((category) => (
+            {visibleCategories.map((category) => (
               <article key={category._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="font-black">{category.name}</h3>
                   <p className="text-sm text-stone-600">{category.slug}</p>
                 </div>
-                <button className="btn-secondary" type="button" onClick={() => toggleCategory(category)}>
-                  {category.isActive ? 'Deactivate' : 'Activate'}
+                <button className="btn-secondary" type="button" disabled={actionLoading === `category-${category._id}`} onClick={() => toggleCategory(category)}>
+                  {actionLoading === `category-${category._id}` ? 'Updating...' : category.isActive ? 'Deactivate' : 'Activate'}
                 </button>
               </article>
             ))}
+            {visibleCategories.length === 0 && <p className="panel text-stone-600">No categories found.</p>}
           </div>
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="panel space-y-3">
+          <p className="label">Admin settings</p>
+          <h2 className="text-xl font-black">Settings</h2>
+          <p className="text-sm text-stone-600">
+            Admin settings are not configured in this MVP. Use Users, Shops, Orders, and Categories to manage marketplace data.
+          </p>
         </div>
       )}
     </section>

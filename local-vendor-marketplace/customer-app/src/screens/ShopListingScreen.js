@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { shopApi } from '../api/services';
@@ -49,13 +50,13 @@ export default function ShopListingScreen({ navigation }) {
   const header = (
     <View style={{ gap: 14 }}>
       <View style={styles.between}>
-        <View style={styles.row}>
+        <View style={[styles.row, { flex: 1 }]}>
           <Pressable onPress={() => navigation.navigate('Home', { screen: 'HomeMain' })} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color={colors.primary} />
           </Pressable>
-          <View>
+          <View style={styles.flex}>
             <Text style={styles.subheading}>{category.replace(' Store', '')}</Text>
-            <Text style={styles.muted}>nagri, Ranchi, 835303</Text>
+            <Text style={styles.muted} numberOfLines={1}>nagri, Ranchi, 835303</Text>
           </View>
         </View>
         <Ionicons name="share-social-outline" size={21} color={colors.ink} />
@@ -72,6 +73,7 @@ export default function ShopListingScreen({ navigation }) {
             onPress={() => setCategory(item)}
             style={{
               minHeight: 38,
+              maxWidth: 165,
               paddingHorizontal: 12,
               borderRadius: 999,
               borderWidth: 1,
@@ -80,17 +82,23 @@ export default function ShopListingScreen({ navigation }) {
               justifyContent: 'center'
             }}
           >
-            <Text style={{ color: category === item ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{item.replace(' Store', '')}</Text>
+            <Text numberOfLines={1} style={{ color: category === item ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{item.replace(' Store', '')}</Text>
           </Pressable>
         )}
       />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        {filters.map((filter) => (
-          <Pressable key={filter} style={{ minHeight: 36, borderRadius: 999, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', justifyContent: 'center' }}>
-            <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 11 }}>{filter}</Text>
+      <FlatList
+        horizontal
+        data={filters}
+        keyExtractor={(item) => item}
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+        renderItem={({ item: filter }) => (
+          <Pressable style={{ minHeight: 36, borderRadius: 999, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', justifyContent: 'center' }}>
+            <Text numberOfLines={1} style={{ color: colors.ink, fontWeight: '800', fontSize: 11 }}>{filter}</Text>
           </Pressable>
-        ))}
-      </View>
+        )}
+      />
       <View style={styles.between}>
         <Text style={styles.subheading}>Nearby shops</Text>
         <StatusBadge status={`${visibleShops.length} found`} />
@@ -99,15 +107,21 @@ export default function ShopListingScreen({ navigation }) {
   );
 
   return (
-    <FlatList
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      data={visibleShops}
-      keyExtractor={(shop) => shop._id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
-      ListHeaderComponent={header}
-      ListEmptyComponent={<EmptyState title="No shops found" message="Try another category or search term." />}
-      renderItem={({ item }) => <ShopCard shop={item} onPress={() => navigation.navigate('Home', { screen: 'ShopDetails', params: { shopId: item._id } })} />}
-    />
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <FlatList
+          style={styles.screen}
+          contentContainerStyle={[styles.content, { paddingBottom: 116 }]}
+          data={visibleShops}
+          keyExtractor={(shop) => shop._id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<EmptyState title="No shops found" message="Try another category or search term." />}
+          renderItem={({ item }) => <ShopCard shop={item} onPress={() => navigation.navigate('Home', { screen: 'ShopDetails', params: { shopId: item._id } })} />}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

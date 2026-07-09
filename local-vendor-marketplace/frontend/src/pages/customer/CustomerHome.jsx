@@ -1,6 +1,7 @@
 import { ArrowRight, Clock, MapPin, Milk, Navigation, Search, ShoppingBasket, Star, Store, Truck, Utensils } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getApiError } from '../../api/client';
 import { categoryApi, productApi, shopApi } from '../../api/services';
 import ProductCard from '../../components/ProductCardV2';
 import StatusBadge from '../../components/StatusBadge';
@@ -28,55 +29,127 @@ const categoryTiles = [
   }
 ];
 
+const includesText = (value, query) => String(value || '').toLowerCase().includes(query);
+
 export default function CustomerHome() {
   const { user } = useAuth();
   const [categories, setCategories] = useState([]);
-  const [shops, setShops] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [allShops, setAllShops] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [filters, setFilters] = useState({ q: '', area: '', city: '', category: '' });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedShop, setSelectedShop] = useState(null);
   const [customerLocation, setCustomerLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const loadData = async (override = {}) => {
+  const loadData = async (override = {}, locationOverride = customerLocation) => {
     const nextFilters = { ...filters, ...override };
-    const locationParams = customerLocation
-      ? { latitude: customerLocation.latitude, longitude: customerLocation.longitude }
+    const locationParams = locationOverride
+      ? { latitude: locationOverride.latitude, longitude: locationOverride.longitude }
       : {};
     setLoading(true);
-    const [categoryRes, shopRes, productRes] = await Promise.all([
-      categoryApi.list(),
-      shopApi.list({ ...nextFilters, ...locationParams }),
-      productApi.list({ q: nextFilters.q, category: nextFilters.category, shop: nextFilters.shop })
-    ]);
-    setCategories(categoryRes.data.filter((category) => category.isActive));
-    setShops(shopRes.data);
-    setProducts(productRes.data);
-    setLoading(false);
+    setError('');
+
+    try {
+      const [categoryRes, shopRes, productRes] = await Promise.all([
+        categoryApi.list(),
+        shopApi.list({ q: '', area: '', city: '', category: '', ...locationParams }),
+        productApi.list({ q: '', category: '' })
+      ]);
+      setCategories(categoryRes.data.filter((category) => category.isActive));
+      setAllShops(shopRes.data);
+      setAllProducts(productRes.data);
+      setFilters(nextFilters);
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading(true);
-      const [categoryRes, shopRes, productRes] = await Promise.all([
-        categoryApi.list(),
-        shopApi.list({ q: '', area: '', city: '', category: '' }),
-        productApi.list({ q: '', category: '' })
-      ]);
-      setCategories(categoryRes.data.filter((category) => category.isActive));
-      setShops(shopRes.data);
-      setProducts(productRes.data);
-      setLoading(false);
+      setError('');
+
+      try {
+        const [categoryRes, shopRes, productRes] = await Promise.all([
+          categoryApi.list(),
+          shopApi.list({ q: '', area: '', city: '', category: '' }),
+          productApi.list({ q: '', category: '' })
+        ]);
+        setCategories(categoryRes.data.filter((category) => category.isActive));
+        setAllShops(shopRes.data);
+        setAllProducts(productRes.data);
+      } catch (err) {
+        setError(getApiError(err));
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(filters.q.trim().toLowerCase());
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [filters.q]);
+
+  const shops = useMemo(() => {
+    const q = debouncedSearch;
+    return allShops.filter((shop) => {
+      const categoryId = shop.category?._id || shop.category || '';
+      const categoryName = shop.category?.name || shop.businessType || '';
+      const matchesCategory = !filters.category || categoryId === filters.category;
+      const matchesArea = !filters.area || includesText(shop.location?.area, filters.area.toLowerCase());
+      const matchesCity = !filters.city || includesText(shop.location?.city, filters.city.toLowerCase());
+      const matchesSearch =
+        !q ||
+        includesText(shop.name, q) ||
+        includesText(shop.description, q) ||
+        includesText(shop.businessType, q) ||
+        includesText(categoryName, q);
+
+      return matchesCategory && matchesArea && matchesCity && matchesSearch;
+    });
+  }, [allShops, debouncedSearch, filters.area, filters.category, filters.city]);
+
+  const products = useMemo(() => {
+    const q = debouncedSearch;
+    return allProducts.filter((product) => {
+      const categoryId = product.category?._id || product.category || '';
+      const categoryName = product.category?.name || product.businessType || '';
+      const shop = product.shop || {};
+      const matchesShop = !selectedShop || (shop._id || shop) === selectedShop._id;
+      const matchesCategory = !filters.category || categoryId === filters.category;
+      const matchesArea = !filters.area || includesText(shop.location?.area, filters.area.toLowerCase());
+      const matchesCity = !filters.city || includesText(shop.location?.city, filters.city.toLowerCase());
+      const matchesSearch =
+        !q ||
+        includesText(product.name, q) ||
+        includesText(product.brand, q) ||
+        includesText(product.description, q) ||
+        includesText(product.groceryCategory, q) ||
+        includesText(product.foodCategory, q) ||
+        includesText(product.dairyBakeryType, q) ||
+        includesText(product.businessType, q) ||
+        includesText(categoryName, q) ||
+        includesText(shop.name, q);
+
+      return matchesShop && matchesCategory && matchesArea && matchesCity && matchesSearch;
+    });
+  }, [allProducts, debouncedSearch, filters.area, filters.category, filters.city, selectedShop]);
+
   const handleSearch = (event) => {
     event.preventDefault();
     setSelectedShop(null);
-    loadData();
+    setDebouncedSearch(filters.q.trim().toLowerCase());
   };
 
   const useCustomerLocation = () => {
@@ -95,7 +168,7 @@ export default function CustomerHome() {
         };
         setCustomerLocation(nextLocation);
         setLocationMessage('Location added. Distances are shown where shop coordinates are available.');
-        loadData(nextLocation);
+        loadData({}, nextLocation);
       },
       () => setLocationMessage('Location permission denied. You can still browse shops.'),
       { enableHighAccuracy: true, timeout: 10000 }
@@ -107,17 +180,14 @@ export default function CustomerHome() {
     const nextCategory = category?._id || '';
     setSelectedShop(null);
     setFilters({ ...filters, category: nextCategory });
-    loadData({ category: nextCategory, shop: undefined });
   };
 
   const viewShopProducts = (shop) => {
     setSelectedShop(shop);
-    loadData({ shop: shop._id });
   };
 
   const clearShopFilter = () => {
     setSelectedShop(null);
-    loadData({ shop: undefined });
   };
 
   const dashboardLink = user?.role === 'admin' ? '/admin' : user?.role === 'seller' ? '/seller' : '/orders';
@@ -257,13 +327,18 @@ export default function CustomerHome() {
         </div>
       </section>
 
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="label">Browse nearby</p>
             <h2 className="text-xl font-black">Nearby Shops</h2>
           </div>
-          <button className="text-sm font-black text-violet-700" type="button" onClick={() => loadData({ category: '', shop: undefined })}>
+          <button className="text-sm font-black text-violet-700" type="button" onClick={() => {
+            setSelectedShop(null);
+            setFilters({ ...filters, category: '' });
+          }}>
             View all
           </button>
         </div>

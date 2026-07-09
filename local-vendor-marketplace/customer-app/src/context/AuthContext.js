@@ -16,17 +16,31 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       const storedUser = await AsyncStorage.getItem(userKey);
+      const token = await AsyncStorage.getItem(tokenKey);
+
+      if (!token) {
+        await AsyncStorage.multiRemove([tokenKey, userKey]);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        if (parsedUser.role === 'customer') {
+          setUser(parsedUser);
+        }
       }
 
       try {
-        const token = await AsyncStorage.getItem(tokenKey);
-        if (token) {
-          const { data } = await authApi.me();
-          setUser(data);
-          await AsyncStorage.setItem(userKey, JSON.stringify(data));
+        const { data } = await authApi.me();
+        if (data.role !== 'customer') {
+          await AsyncStorage.multiRemove([tokenKey, userKey]);
+          setUser(null);
+          return;
         }
+        setUser(data);
+        await AsyncStorage.setItem(userKey, JSON.stringify(data));
       } catch {
         await AsyncStorage.multiRemove([tokenKey, userKey]);
         setUser(null);
@@ -49,6 +63,7 @@ export function AuthProvider({ children }) {
   const login = async (payload) => {
     const { data } = await authApi.login(payload);
     if (data.user.role !== 'customer') {
+      await AsyncStorage.multiRemove([tokenKey, userKey]);
       throw new Error('Please use a customer account.');
     }
     await persistSession(data);

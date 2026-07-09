@@ -1,5 +1,6 @@
 import { MapPin, MessageCircle, PackagePlus, Pencil, Plus, Save, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, productApi, shopApi } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
@@ -10,6 +11,11 @@ const foodCategories = ['Starter', 'Main Course', 'Snacks', 'Drinks', 'Dessert']
 const groceryCategories = ['Rice', 'Oil', 'Snacks', 'Cold Drinks', 'Household', 'Personal Care', 'Other'];
 const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const closureReasons = ['Holiday', 'Out of Stock', 'Personal Reason', 'Maintenance', 'Custom'];
+const includesText = (value, query) => String(value || '').toLowerCase().includes(query);
+const buildMapUrl = (latitude, longitude) =>
+  latitude !== '' && latitude != null && longitude !== '' && longitude != null
+    ? `https://www.google.com/maps?q=${latitude},${longitude}`
+    : '';
 
 const emptyProductForm = {
   name: '',
@@ -85,16 +91,21 @@ const buildWhatsAppUrl = (order, phone) => {
 };
 
 export default function SellerDashboardV2() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [selectedDeliveryBoys, setSelectedDeliveryBoys] = useState({});
-  const [tab, setTab] = useState('shop');
+  const [tab, setTab] = useState(searchParams.get('tab') || 'shop');
   const [isEditingShop, setIsEditingShop] = useState(false);
   const [editingProductId, setEditingProductId] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [actionLoading, setActionLoading] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
   const [shopForm, setShopForm] = useState({
     name: '',
     description: '',
@@ -103,7 +114,7 @@ export default function SellerDashboardV2() {
     businessType: 'Restaurant',
     phone: '',
     deliveryRadiusKm: 5,
-    location: { area: '', city: '', pincode: '', landmark: '', latitude: '', longitude: '' },
+    location: { area: '', city: '', pincode: '', landmark: '', latitude: '', longitude: '', mapUrl: '' },
     deliveryBoys: []
   });
   const [productForm, setProductForm] = useState(emptyProductForm);
@@ -125,7 +136,8 @@ export default function SellerDashboardV2() {
         pincode: nextShop.location?.pincode || '',
         landmark: nextShop.location?.landmark || '',
         latitude: nextShop.location?.latitude ?? '',
-        longitude: nextShop.location?.longitude ?? ''
+        longitude: nextShop.location?.longitude ?? '',
+        mapUrl: nextShop.location?.mapUrl || buildMapUrl(nextShop.location?.latitude, nextShop.location?.longitude)
       },
       deliveryBoys: nextShop.deliveryBoys?.length ? nextShop.deliveryBoys : []
     });
@@ -165,8 +177,88 @@ export default function SellerDashboardV2() {
     loadSettings();
   }, [loadData, loadSettings]);
 
+  useEffect(() => {
+    const nextTab = searchParams.get('tab') || 'shop';
+    const safeTab = ['shop', 'settings', 'products', 'orders'].includes(nextTab) ? nextTab : 'shop';
+    setTab(safeTab);
+
+    const query = searchParams.get('q') || '';
+    if (safeTab === 'products') setProductSearch(query);
+    if (safeTab === 'orders') setOrderSearch(query);
+  }, [searchParams]);
+
+  const selectTab = (nextTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', nextTab);
+    if (!['products', 'orders'].includes(nextTab)) nextParams.delete('q');
+    setSearchParams(nextParams, { replace: true });
+    setTab(nextTab);
+  };
+
   const updateShopLocation = (key, value) =>
-    setShopForm({ ...shopForm, location: { ...shopForm.location, [key]: value } });
+    setShopForm((current) => {
+      const location = { ...current.location, [key]: value };
+      if (key === 'latitude' || key === 'longitude') {
+        location.mapUrl = buildMapUrl(location.latitude, location.longitude);
+      }
+      return { ...current, location };
+    });
+
+  const captureShopLocation = () => {
+    setError('');
+    setMessage('');
+
+    if (!navigator.geolocation) {
+      setError('Location is not supported in this browser. You can still enter address manually.');
+      return;
+    }
+
+    setActionLoading('shop-location');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = Number(position.coords.latitude.toFixed(6));
+        const longitude = Number(position.coords.longitude.toFixed(6));
+        setShopForm((current) => ({
+          ...current,
+          location: {
+            ...current.location,
+            latitude,
+            longitude,
+            mapUrl: buildMapUrl(latitude, longitude)
+          }
+        }));
+        setMessage('Location added. Save shop to persist it.');
+        setActionLoading('');
+      },
+      () => {
+        setError('Location permission denied. You can still enter address manually.');
+        setActionLoading('');
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
+  const uploadShopLogo = async (file) => {
+    if (!file) return;
+    setError('');
+    setMessage('');
+    setActionLoading('upload-logo');
+
+    const previewUrl = URL.createObjectURL(file);
+    setLogoPreview(previewUrl);
+
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+      const { data } = await shopApi.uploadLogo(formData);
+      setShopForm((current) => ({ ...current, logoUrl: data.logoUrl }));
+      setMessage('Shop image uploaded. Save shop to persist it.');
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
+    }
+  };
 
   const updateDeliveryBoy = (index, key, value) => {
     const deliveryBoys = [...shopForm.deliveryBoys];
@@ -184,19 +276,28 @@ export default function SellerDashboardV2() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setActionLoading('save-shop');
 
     try {
       const category = categories.find((item) => item.name === shopForm.businessType)?._id || shopForm.category;
       const location = { ...shopForm.location };
       if (location.latitude === '') delete location.latitude;
       if (location.longitude === '') delete location.longitude;
+      if (location.latitude != null && location.longitude != null) {
+        location.mapUrl = buildMapUrl(location.latitude, location.longitude);
+      } else {
+        delete location.mapUrl;
+      }
       const { data } = await shopApi.saveMyShop({ ...shopForm, location, category });
       setShop(data);
       hydrateShopForm(data);
+      setLogoPreview('');
       setIsEditingShop(false);
       setMessage(data.status === 'approved' ? 'Shop profile saved.' : 'Shop profile submitted for admin approval.');
     } catch (err) {
       setError(getApiError(err));
+    } finally {
+      setActionLoading('');
     }
   };
 
@@ -204,6 +305,7 @@ export default function SellerDashboardV2() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setActionLoading('save-product');
 
     try {
       const formData = new FormData();
@@ -226,19 +328,32 @@ export default function SellerDashboardV2() {
       setProductForm(emptyProductForm);
       setEditingProductId('');
       setMessage(editingProductId ? 'Product updated.' : 'Product added.');
-      loadData();
+      await loadData();
     } catch (err) {
       setError(getApiError(err));
+    } finally {
+      setActionLoading('');
     }
   };
 
   const deleteProduct = async (id) => {
-    await productApi.remove(id);
-    if (editingProductId === id) {
-      setEditingProductId('');
-      setProductForm(emptyProductForm);
+    setError('');
+    setMessage('');
+    setActionLoading(`delete-${id}`);
+
+    try {
+      await productApi.remove(id);
+      setProducts((current) => current.filter((product) => product._id !== id));
+      if (editingProductId === id) {
+        setEditingProductId('');
+        setProductForm(emptyProductForm);
+      }
+      setMessage('Product deleted.');
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
     }
-    loadData();
   };
 
   const editProduct = (product) => {
@@ -266,8 +381,19 @@ export default function SellerDashboardV2() {
   };
 
   const updateOrderStatus = async (id, status) => {
-    await orderApi.updateSellerStatus(id, { status, note: `Seller marked ${status}` });
-    loadData();
+    setError('');
+    setMessage('');
+    setActionLoading(`order-${id}-${status}`);
+
+    try {
+      const { data } = await orderApi.updateSellerStatus(id, { status, note: `Seller marked ${status}` });
+      setOrders((current) => current.map((order) => (order._id === id ? { ...order, ...data } : order)));
+      setMessage(`Order marked ${status}.`);
+    } catch (err) {
+      setError(getApiError(err));
+    } finally {
+      setActionLoading('');
+    }
   };
 
   const openShare = (order) => {
@@ -275,11 +401,40 @@ export default function SellerDashboardV2() {
   };
 
   const activeBusinessType = shop?.businessType || shopForm.businessType;
-  const visibleOrders = [...orders].sort((first, second) => {
-    if (first.status === 'Pending' && second.status !== 'Pending') return -1;
-    if (first.status !== 'Pending' && second.status === 'Pending') return 1;
-    return new Date(second.createdAt) - new Date(first.createdAt);
-  });
+  const visibleProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return products;
+
+    return products.filter(
+      (product) =>
+        includesText(product.name, q) ||
+        includesText(product.brand, q) ||
+        includesText(product.groceryCategory, q) ||
+        includesText(product.foodCategory, q) ||
+        includesText(product.dairyBakeryType, q) ||
+        includesText(product.category?.name, q) ||
+        includesText(product.packSize, q)
+    );
+  }, [productSearch, products]);
+  const visibleOrders = useMemo(() => {
+    const q = orderSearch.trim().toLowerCase();
+    return [...orders]
+      .filter(
+        (order) =>
+          !q ||
+          includesText(order._id, q) ||
+          includesText(order.customer?.name, q) ||
+          includesText(order.customer?.email, q) ||
+          includesText(order.customer?.phone, q) ||
+          includesText(order.deliveryAddress?.phone, q) ||
+          includesText(order.status, q)
+      )
+      .sort((first, second) => {
+        if (first.status === 'Pending' && second.status !== 'Pending') return -1;
+        if (first.status !== 'Pending' && second.status === 'Pending') return 1;
+        return new Date(second.createdAt) - new Date(first.createdAt);
+      });
+  }, [orderSearch, orders]);
   const newOrderCount = orders.filter((order) => order.status === 'Pending').length;
   const activeOrderCount = orders.filter((order) => ['Pending', 'Accepted', 'Packed', 'Out for Delivery'].includes(order.status)).length;
   const completedOrderCount = orders.filter((order) => order.status === 'Delivered').length;
@@ -297,8 +452,14 @@ export default function SellerDashboardV2() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setActionLoading('save-settings');
 
     try {
+      const deliverySettings = settingsForm.deliverySettings;
+      if (Number(deliverySettings.radiusKm) <= 0) throw new Error('Delivery radius must be greater than 0.');
+      if (Number(deliverySettings.minimumOrder) < 0) throw new Error('Minimum order must be zero or more.');
+      if (Number(deliverySettings.deliveryCharge) < 0) throw new Error('Delivery charge must be zero or more.');
+      if (!String(deliverySettings.estimatedDeliveryTime || '').trim()) throw new Error('Estimated delivery time is required.');
       const { data } = await shopApi.updateSettings(settingsForm);
       setSettingsForm({
         workingHours: data.workingHours,
@@ -309,6 +470,8 @@ export default function SellerDashboardV2() {
       setMessage('Business settings saved.');
     } catch (err) {
       setError(getApiError(err));
+    } finally {
+      setActionLoading('');
     }
   };
 
@@ -324,7 +487,7 @@ export default function SellerDashboardV2() {
 
       <div className="flex flex-wrap gap-2">
         {['shop', 'settings', 'products', 'orders'].map((item) => (
-          <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => setTab(item)}>
+          <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => selectTab(item)}>
             {item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
@@ -355,10 +518,15 @@ export default function SellerDashboardV2() {
       {tab === 'shop' && shop?.status === 'approved' && !isEditingShop && (
         <section className="panel space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="label">{shop.businessType}</p>
-              <h2 className="text-xl font-black">{shop.name}</h2>
-              <p className="text-sm text-stone-600">{shop.description || 'No description added.'}</p>
+            <div className="flex flex-wrap items-start gap-3">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-xl font-black text-emerald-700">
+                {shop.logoUrl ? <img className="h-full w-full object-cover" src={shop.logoUrl} alt={shop.name} /> : shop.name?.slice(0, 1)}
+              </div>
+              <div>
+                <p className="label">{shop.businessType}</p>
+                <h2 className="text-xl font-black">{shop.name}</h2>
+                <p className="text-sm text-stone-600">{shop.description || 'No description added.'}</p>
+              </div>
             </div>
             <StatusBadge status={shop.status} />
           </div>
@@ -370,6 +538,12 @@ export default function SellerDashboardV2() {
             <div className="rounded-md bg-stone-50 p-3">
               <p className="label">Area</p>
               <p className="font-bold">{shop.location?.area}, {shop.location?.city}</p>
+              {shop.location?.mapUrl && (
+                <a className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-market-leaf" href={shop.location.mapUrl} target="_blank" rel="noreferrer">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Map
+                </a>
+              )}
             </div>
             <div className="rounded-md bg-stone-50 p-3">
               <p className="label">Delivery boys</p>
@@ -433,11 +607,21 @@ export default function SellerDashboardV2() {
             <input className="field mt-1" placeholder="Short shop description" value={shopForm.description} onChange={(event) => setShopForm({ ...shopForm, description: event.target.value })} />
             <span className="mt-1 block text-xs text-stone-500">One line about what the shop sells.</span>
           </label>
-          <label className="md:col-span-2">
-            <span className="label">Shop logo URL</span>
-            <input className="field mt-1" placeholder="https://example.com/logo.png" value={shopForm.logoUrl} onChange={(event) => setShopForm({ ...shopForm, logoUrl: event.target.value })} />
-            <span className="mt-1 block text-xs text-stone-500">Optional image URL shown on customer shop cards.</span>
-          </label>
+          <div className="md:col-span-2 grid gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 md:grid-cols-[96px_1fr] md:items-center">
+            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl bg-white text-xl font-black text-emerald-700">
+              {logoPreview || shopForm.logoUrl ? <img className="h-full w-full object-cover" src={logoPreview || shopForm.logoUrl} alt="Shop logo preview" /> : 'Logo'}
+            </div>
+            <div className="space-y-2">
+              <label>
+                <span className="label">Shop image / logo</span>
+                <input className="field mt-1" type="file" accept="image/*" onChange={(event) => uploadShopLogo(event.target.files?.[0])} />
+              </label>
+              <input className="field" placeholder="Or paste image URL" value={shopForm.logoUrl} onChange={(event) => setShopForm({ ...shopForm, logoUrl: event.target.value })} />
+              <span className="block text-xs text-stone-500">
+                {actionLoading === 'upload-logo' ? 'Uploading image...' : 'Shown on seller dashboard and customer shop cards.'}
+              </span>
+            </div>
+          </div>
           {['area', 'city', 'pincode', 'landmark'].map((field) => (
             <label key={field}>
               <span className="label">{field}</span>
@@ -457,6 +641,18 @@ export default function SellerDashboardV2() {
             <input className="field mt-1" placeholder="Optional, e.g. 77.2090" value={shopForm.location.longitude} onChange={(event) => updateShopLocation('longitude', event.target.value)} />
             <span className="mt-1 block text-xs text-stone-500">Needed for distance and delivery radius checks.</span>
           </label>
+          <div className="md:col-span-2 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+            <button className="btn-secondary" type="button" onClick={captureShopLocation} disabled={actionLoading === 'shop-location'}>
+              <MapPin className="h-4 w-4" />
+              {actionLoading === 'shop-location' ? 'Getting location...' : 'Use Current Location'}
+            </button>
+            {shopForm.location.mapUrl && (
+              <a className="btn-secondary" href={shopForm.location.mapUrl} target="_blank" rel="noreferrer">
+                Open map
+              </a>
+            )}
+            <span className="text-xs text-stone-500">Browser permission captures fixed shop latitude and longitude.</span>
+          </div>
           <div className="md:col-span-2">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-black">Delivery boys</h2>
@@ -477,9 +673,9 @@ export default function SellerDashboardV2() {
               ))}
             </div>
           </div>
-          <button className="btn-primary md:col-span-2" type="submit">
+          <button className="btn-primary md:col-span-2" type="submit" disabled={actionLoading === 'save-shop'}>
             <Save className="h-4 w-4" />
-            Save shop
+            {actionLoading === 'save-shop' ? 'Saving...' : 'Save shop'}
           </button>
           {shop?.status === 'approved' && (
             <button className="btn-secondary md:col-span-2" type="button" onClick={() => {
@@ -565,9 +761,9 @@ export default function SellerDashboardV2() {
                 )}
               </section>
 
-              <button className="btn-primary w-full" type="submit">
+              <button className="btn-primary w-full" type="submit" disabled={actionLoading === 'save-settings'}>
                 <Save className="h-4 w-4" />
-                Save business settings
+                {actionLoading === 'save-settings' ? 'Saving...' : 'Save business settings'}
               </button>
             </>
           )}
@@ -631,9 +827,9 @@ export default function SellerDashboardV2() {
               <option value="inactive">Not Available</option>
             </select>
             <input className="field" type="file" accept="image/*" multiple onChange={(event) => setProductForm({ ...productForm, images: event.target.files })} />
-            <button className="btn-primary w-full" type="submit">
+            <button className="btn-primary w-full" type="submit" disabled={actionLoading === 'save-product'}>
               {editingProductId ? <Save className="h-4 w-4" /> : <PackagePlus className="h-4 w-4" />}
-              {editingProductId ? 'Update product' : 'Add product'}
+              {actionLoading === 'save-product' ? 'Saving...' : editingProductId ? 'Update product' : 'Add product'}
             </button>
             {editingProductId && (
               <button className="btn-secondary w-full" type="button" onClick={cancelProductEdit}>
@@ -642,9 +838,19 @@ export default function SellerDashboardV2() {
             )}
           </form>
           <div className="grid gap-3">
-            {products.map((product) => (
+            <input
+              className="field"
+              placeholder="Search products by name, brand, or category"
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
+            />
+            {visibleProducts.map((product) => (
               <article key={product._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100 text-sm font-bold text-stone-500">
+                    {product.images?.[0]?.url ? <img className="h-full w-full object-cover" src={product.images[0].url} alt={product.name} /> : 'Image'}
+                  </div>
+                  <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-black">{product.name}</h3>
                     <StatusBadge status={product.status} />
@@ -654,26 +860,33 @@ export default function SellerDashboardV2() {
                     {product.businessType === 'Grocery / Kirana Store' ? ` | Stock ${product.stock}` : ''}
                     {product.packSize ? ` | ${product.packSize}` : ''}
                   </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button className="btn-secondary" type="button" onClick={() => editProduct(product)}>
                     <Pencil className="h-4 w-4" />
                     Edit
                   </button>
-                  <button className="btn-danger" type="button" onClick={() => deleteProduct(product._id)}>
+                  <button className="btn-danger" type="button" disabled={actionLoading === `delete-${product._id}`} onClick={() => deleteProduct(product._id)}>
                     <Trash2 className="h-4 w-4" />
-                    Delete
+                    {actionLoading === `delete-${product._id}` ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               </article>
             ))}
-            {products.length === 0 && <p className="panel text-stone-600">No products yet.</p>}
+            {visibleProducts.length === 0 && <p className="panel text-stone-600">No products found.</p>}
           </div>
         </div>
       )}
 
       {tab === 'orders' && (
         <div className="grid gap-3">
+          <input
+            className="field"
+            placeholder="Search orders by id, customer, phone, or status"
+            value={orderSearch}
+            onChange={(event) => setOrderSearch(event.target.value)}
+          />
           {visibleOrders.map((order) => (
             <article key={order._id} className={`panel space-y-3 ${order.status === 'Pending' ? 'border-market-leaf ring-2 ring-market-leaf/20' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -707,8 +920,8 @@ export default function SellerDashboardV2() {
                 <p className="text-lg font-black">₹{order.subtotal}</p>
                 <div className="flex flex-wrap gap-2">
                   {orderStatuses.map((status) => (
-                    <button key={status} className="btn-secondary" type="button" onClick={() => updateOrderStatus(order._id, status)}>
-                      {status}
+                    <button key={status} className="btn-secondary" type="button" disabled={actionLoading === `order-${order._id}-${status}`} onClick={() => updateOrderStatus(order._id, status)}>
+                      {actionLoading === `order-${order._id}-${status}` ? 'Updating...' : status}
                     </button>
                   ))}
                 </div>
@@ -741,7 +954,7 @@ export default function SellerDashboardV2() {
               </div>
             </article>
           ))}
-          {orders.length === 0 && <p className="panel text-stone-600">No orders yet.</p>}
+          {visibleOrders.length === 0 && <p className="panel text-stone-600">No orders found.</p>}
         </div>
       )}
     </section>

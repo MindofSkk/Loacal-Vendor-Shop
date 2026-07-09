@@ -13,8 +13,9 @@ import SellerDashboard from './pages/seller/SellerDashboardV2';
 import { useAuth } from './context/AuthContext';
 
 const DashboardRedirect = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
+  if (loading) return <div className="panel">Checking authentication...</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'seller') return <Navigate to="/seller" replace />;
@@ -66,6 +67,14 @@ export default function App() {
           />
           <Route
             path="/admin"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/:section"
             element={
               <ProtectedRoute roles={['admin']}>
                 <AdminDashboard />

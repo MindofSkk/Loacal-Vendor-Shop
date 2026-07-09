@@ -11,11 +11,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(Boolean(localStorage.getItem('lvm_token')));
 
   useEffect(() => {
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener('lvm:unauthorized', handleUnauthorized);
+
     const token = localStorage.getItem('lvm_token');
 
     if (!token) {
       setLoading(false);
-      return;
+      return () => window.removeEventListener('lvm:unauthorized', handleUnauthorized);
     }
 
     authApi
@@ -30,6 +33,8 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
       })
       .finally(() => setLoading(false));
+
+    return () => window.removeEventListener('lvm:unauthorized', handleUnauthorized);
   }, []);
 
   const persistSession = ({ user: nextUser, token }) => {

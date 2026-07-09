@@ -120,6 +120,8 @@ export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search 
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="#9CA3AF"
+        autoCorrect={false}
+        returnKeyType="search"
         style={styles.searchInput}
       />
       {value ? (
@@ -133,8 +135,8 @@ export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search 
   );
 }
 
-export function FixedFooter({ children }) {
-  return <View style={styles.fixedFooter}>{children}</View>;
+export function FixedFooter({ children, style }) {
+  return <View style={[styles.fixedFooter, style]}>{children}</View>;
 }
 
 export function DeliveryAddressCard({
@@ -284,7 +286,7 @@ export function ShopCard({ shop, onPress }) {
       <Card style={styles.shopCard}>
         <View style={styles.row}>
           <View style={styles.shopThumb}>
-            {shop.logoUrl ? <Image source={{ uri: shop.logoUrl }} style={styles.image} /> : <Text style={styles.thumbText}>{shop.name?.slice(0, 1) || 'S'}</Text>}
+            {shop.logoUrl ? <Image source={{ uri: shop.logoUrl }} style={styles.image} /> : <Ionicons name="storefront-outline" size={24} color={colors.primary} />}
           </View>
           <View style={styles.flex}>
             <View style={styles.between}>
@@ -312,7 +314,7 @@ export function ProductCard({ product, onPress, onAdd }) {
     <Card style={styles.productCard}>
       <Pressable onPress={onPress} style={{ gap: 8 }}>
         <View style={styles.productThumb}>
-          {image ? <Image source={{ uri: image }} style={styles.image} /> : <Text style={styles.thumbText}>{product.name?.slice(0, 1) || 'P'}</Text>}
+          {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={25} color={colors.primary} />}
         </View>
         <Text style={styles.productTitle} numberOfLines={2}>{product.name}</Text>
         <Text style={styles.productMeta} numberOfLines={1}>{product.brand || product.foodCategory || product.groceryCategory || product.shop?.name}</Text>
@@ -327,26 +329,35 @@ export function ProductCard({ product, onPress, onAdd }) {
   );
 }
 
-export function ProductListCard({ product, onPress, onAdd, disabled }) {
+export function ProductListCard({ product, onPress, onAdd, disabled, quantity = 0, onMinus, onPlus }) {
   const image = product.images?.[0]?.url;
   const unavailable = disabled || product.status === 'inactive';
+  const meta = product.brand || product.foodCategory || product.groceryCategory || product.dairyBakeryType || product.shop?.name;
 
   return (
     <Card style={styles.productListCard}>
-      <Pressable onPress={onPress} style={styles.row}>
-        <View style={styles.productListThumb}>
-          {image ? <Image source={{ uri: image }} style={styles.image} /> : <Text style={styles.thumbText}>{product.name?.slice(0, 1) || 'P'}</Text>}
-        </View>
-        <View style={styles.flex}>
-          <View style={styles.between}>
-            <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
-            <StatusBadge status={product.status === 'inactive' ? 'Unavailable' : 'Available'} />
+      <View style={styles.productListRow}>
+        <Pressable onPress={onPress} style={styles.productListInfo}>
+          <View style={styles.productListThumb}>
+            {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={26} color={colors.primary} />}
           </View>
-          <Text style={styles.muted} numberOfLines={1}>{product.brand || product.foodCategory || product.groceryCategory || product.dairyBakeryType || product.shop?.name}</Text>
-          <Text style={styles.price}>Rs.{product.price}</Text>
+          <View style={styles.flex}>
+            <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
+            {meta ? <Text style={styles.muted} numberOfLines={1}>{meta}</Text> : null}
+            <Text style={styles.price}>Rs.{product.price}</Text>
+          </View>
+        </Pressable>
+        <View style={styles.productListActions}>
+          <StatusBadge status={product.status === 'inactive' ? 'Unavailable' : 'Available'} />
+          {quantity > 0 ? (
+            <QuantityStepper value={quantity} onMinus={onMinus} onPlus={onPlus} />
+          ) : (
+            <Pressable onPress={onAdd} disabled={unavailable} style={[styles.addSmallButton, unavailable ? styles.disabled : null]}>
+              <Text style={styles.addSmallText}>+ Add</Text>
+            </Pressable>
+          )}
         </View>
-      </Pressable>
-      {onAdd ? <Button title={unavailable ? 'Unavailable' : 'Add to cart'} onPress={onAdd} disabled={unavailable} style={styles.compactButton} /> : null}
+      </View>
     </Card>
   );
 }
@@ -438,7 +449,7 @@ export const AppCard = Card;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, paddingBottom: 96, gap: 14 },
+  content: { padding: 16, paddingBottom: 116, gap: 14 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -457,11 +468,13 @@ export const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: colors.bg },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   appHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
   homeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
-  greeting: { fontSize: 20, fontWeight: '900', color: colors.ink, marginBottom: 6 },
+  greeting: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 6 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
-  locationText: { color: colors.ink, fontSize: 14, fontWeight: '800', flexShrink: 1 },
+  locationText: { color: colors.ink, fontSize: 14, fontWeight: '700', flexShrink: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   smallIconButton: {
     width: 42,
@@ -473,17 +486,17 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border
   },
-  headerTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  headerSubtitle: { color: colors.muted, fontWeight: '700', fontSize: 12, marginTop: 2 },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
+  headerSubtitle: { color: colors.muted, fontWeight: '600', fontSize: 12, marginTop: 2 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   flex: { flex: 1 },
-  title: { fontSize: 16, fontWeight: '900', color: colors.ink },
-  heading: { fontSize: 25, lineHeight: 31, fontWeight: '900', color: colors.ink },
-  subheading: { fontSize: 16, fontWeight: '900', color: colors.ink },
-  muted: { color: colors.muted, fontWeight: '600', lineHeight: 20 },
-  small: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
-  link: { color: colors.primary, fontWeight: '900' },
-  label: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginBottom: 6 },
+  title: { fontSize: 16, lineHeight: 20, fontWeight: '800', color: colors.ink, flexShrink: 1 },
+  heading: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: colors.ink },
+  subheading: { fontSize: 16, fontWeight: '800', color: colors.ink },
+  muted: { color: colors.muted, fontWeight: '500', lineHeight: 19, fontSize: 13 },
+  small: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 3 },
+  link: { color: colors.primary, fontWeight: '800' },
+  label: { color: colors.muted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
   inputShell: {
     minHeight: 48,
     borderWidth: 1,
@@ -498,8 +511,8 @@ export const styles = StyleSheet.create({
   fieldError: { color: colors.error, fontSize: 12, fontWeight: '800', marginTop: 5 },
   helperText: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 5 },
   textAreaShell: { minHeight: 100, alignItems: 'flex-start', paddingTop: 12 },
-  inputIcon: { color: colors.primary, fontWeight: '900', marginRight: 8 },
-  input: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700', paddingVertical: 10 },
+  inputIcon: { color: colors.primary, fontWeight: '800', marginRight: 8 },
+  input: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '500', paddingVertical: 10 },
   textArea: { minHeight: 78, textAlignVertical: 'top' },
   button: {
     minHeight: 48,
@@ -516,17 +529,19 @@ export const styles = StyleSheet.create({
   dangerButton: { backgroundColor: colors.red },
   outlineDangerButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.red },
   ghostButton: { backgroundColor: 'transparent' },
-  buttonText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  buttonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   secondaryButtonText: { color: colors.ink },
   outlineDangerText: { color: colors.red },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.78 },
   shopCard: { gap: 8, padding: 10 },
   productCard: { width: 126, gap: 8, padding: 10, position: 'relative' },
-  productListCard: { gap: 12 },
+  productListCard: { padding: 10 },
+  productListRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  productListInfo: { flex: 1, flexDirection: 'row', gap: 10, alignItems: 'center' },
   shopThumb: {
-    width: 72,
-    height: 58,
+    width: 76,
+    height: 76,
     borderRadius: 12,
     backgroundColor: '#ede9fe',
     overflow: 'hidden',
@@ -543,8 +558,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   productListThumb: {
-    width: 74,
-    height: 74,
+    width: 76,
+    height: 76,
     borderRadius: 14,
     backgroundColor: '#f5f3ff',
     overflow: 'hidden',
@@ -553,9 +568,9 @@ export const styles = StyleSheet.create({
   },
   thumbText: { color: colors.primary, fontWeight: '900', fontSize: 24 },
   image: { width: '100%', height: '100%' },
-  price: { color: colors.ink, fontWeight: '900', fontSize: 17 },
-  productTitle: { color: colors.ink, fontWeight: '900', fontSize: 12, minHeight: 32 },
-  productMeta: { color: colors.muted, fontWeight: '700', fontSize: 10 },
+  price: { color: colors.ink, fontWeight: '800', fontSize: 16 },
+  productTitle: { color: colors.ink, fontWeight: '800', fontSize: 12, minHeight: 32 },
+  productMeta: { color: colors.muted, fontWeight: '600', fontSize: 10 },
   addFab: {
     position: 'absolute',
     right: 10,
@@ -568,9 +583,9 @@ export const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   metaPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  pill: { backgroundColor: '#f8fafc', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: colors.muted, fontSize: 11, fontWeight: '900' },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start' },
-  badgeText: { color: colors.ink, fontSize: 11, fontWeight: '900' },
+  pill: { backgroundColor: '#f8fafc', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: colors.muted, fontSize: 11, fontWeight: '700' },
+  badge: { minHeight: 24, maxHeight: 28, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, alignSelf: 'flex-start', justifyContent: 'center' },
+  badgeText: { color: colors.ink, fontSize: 10, fontWeight: '800' },
   greenBadge: { backgroundColor: '#dcfce7' },
   redBadge: { backgroundColor: '#fee2e2' },
   amberBadge: { backgroundColor: '#fef3c7' },
@@ -600,8 +615,8 @@ export const styles = StyleSheet.create({
   activeCategoryIcon: { backgroundColor: colors.primary },
   categoryIconText: { color: colors.primary, fontWeight: '900', fontSize: 18 },
   activeCategoryIconText: { color: '#fff' },
-  categoryTitle: { color: colors.ink, fontWeight: '900', fontSize: 11, textAlign: 'center', lineHeight: 14 },
-  categorySubtitle: { color: colors.muted, fontWeight: '700', fontSize: 9, textAlign: 'center' },
+  categoryTitle: { color: colors.ink, fontWeight: '800', fontSize: 11, textAlign: 'center', lineHeight: 14 },
+  categorySubtitle: { color: colors.muted, fontWeight: '600', fontSize: 9, textAlign: 'center' },
   iconBubble: {
     width: 42,
     height: 42,
@@ -644,7 +659,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10
   },
-  locationActionText: { color: colors.ink, fontSize: 15, fontWeight: '900' },
+  locationActionText: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   searchShell: {
     minHeight: 46,
     borderRadius: 14,
@@ -656,22 +671,22 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8
   },
-  searchInput: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '700' },
+  searchInput: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '500' },
   searchClearButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   fixedFooter: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 16,
-    paddingBottom: 18,
+    left: 16,
+    right: 16,
+    bottom: 82,
+    padding: 10,
+    borderRadius: 18,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#111827',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8
   },
   menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
@@ -681,8 +696,11 @@ export const styles = StyleSheet.create({
   emptyIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' },
   emptyIconText: { color: colors.primary, fontWeight: '900' },
   emptyTitle: { fontSize: 18, fontWeight: '900', color: colors.ink },
-  stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 999, overflow: 'hidden' },
-  stepButton: { minWidth: 38, minHeight: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
-  stepText: { color: colors.primary, fontSize: 20, fontWeight: '900' },
-  stepValue: { minWidth: 38, textAlign: 'center', color: colors.ink, fontWeight: '900' }
+  productListActions: { alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', gap: 8, maxWidth: 112 },
+  addSmallButton: { minHeight: 34, borderRadius: 11, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  addSmallText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 999, overflow: 'hidden', backgroundColor: '#fff' },
+  stepButton: { minWidth: 30, minHeight: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
+  stepText: { color: colors.primary, fontSize: 18, fontWeight: '900' },
+  stepValue: { minWidth: 30, textAlign: 'center', color: colors.ink, fontWeight: '800', fontSize: 12 }
 });

@@ -13,6 +13,7 @@ export const shopValidator = [
   body('location.pincode').trim().notEmpty().withMessage('Pincode is required'),
   body('location.latitude').optional({ nullable: true }).isFloat().withMessage('Latitude must be a number'),
   body('location.longitude').optional({ nullable: true }).isFloat().withMessage('Longitude must be a number'),
+  body('location.mapUrl').optional().trim(),
   body('deliveryRadiusKm').optional().isFloat({ min: 1, max: 25 }).withMessage('Delivery radius must be 1-25 km'),
   body('deliveryBoys').optional().isArray().withMessage('Delivery boys must be an array'),
   body('deliveryBoys.*.name').optional().trim(),

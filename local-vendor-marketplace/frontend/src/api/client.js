@@ -14,5 +14,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('lvm_token');
+      localStorage.removeItem('lvm_user');
+      window.dispatchEvent(new Event('lvm:unauthorized'));
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const getApiError = (error) =>
   error.response?.data?.message || error.response?.data?.details?.[0]?.msg || error.message || 'Something went wrong';

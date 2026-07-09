@@ -24,7 +24,7 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'LocalShop' }} />
-      <Stack.Screen name="ShopDetails" component={ShopDetailsScreen} options={{ title: 'Shop Details' }} />
+      <Stack.Screen name="ShopDetails" component={ShopDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Details' }} />
     </Stack.Navigator>
   );
@@ -68,6 +68,7 @@ function AppTabs() {
     <Tabs.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontWeight: '900', fontSize: 12 },

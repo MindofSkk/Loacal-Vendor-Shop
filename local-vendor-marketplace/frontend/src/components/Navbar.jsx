@@ -1,11 +1,9 @@
 import {
   Bell,
   ClipboardList,
-  Heart,
   Home,
   LayoutDashboard,
-  LogOut,
-  MapPinned,
+  LogOut , 
   Package,
   Search,
   Settings,
@@ -40,17 +38,41 @@ const roleTheme = {
 };
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { items } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const role = user?.role || (location.pathname.startsWith('/admin') ? 'admin' : location.pathname.startsWith('/seller') ? 'seller' : 'customer');
   const theme = roleTheme[role] || roleTheme.customer;
+  const isAdmin = role === 'admin';
+  const adminSection = location.pathname.startsWith('/admin/') ? location.pathname.split('/')[2] : 'dashboard';
+  const searchParams = new URLSearchParams(location.search);
+  const adminSearch = searchParams.get('q') || '';
+  const sellerTab = role === 'seller' ? searchParams.get('tab') || 'shop' : '';
+  const sellerSearch = role === 'seller' ? searchParams.get('q') || '' : '';
+  const sellerSearchEnabled = ['products', 'orders'].includes(sellerTab);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleAdminSearch = (event) => {
+    const params = new URLSearchParams(location.search);
+    const value = event.target.value;
+    if (value) params.set('q', value);
+    else params.delete('q');
+    navigate(`/admin/${adminSection}${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
+  };
+
+  const handleSellerSearch = (event) => {
+    const params = new URLSearchParams(location.search);
+    const value = event.target.value;
+    params.set('tab', sellerTab);
+    if (value) params.set('q', value);
+    else params.delete('q');
+    navigate(`/seller${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
   };
 
   const navItems = [
@@ -58,15 +80,17 @@ export default function Navbar() {
     { to: '/', label: 'Nearby Shops', icon: Store, show: role === 'customer', passive: true },
     { to: '/cart', label: `Cart${itemCount > 0 ? ` (${itemCount})` : ''}`, icon: ShoppingCart, show: user?.role === 'customer' },
     { to: '/orders', label: 'Orders', icon: ClipboardList, show: user?.role === 'customer' },
-    { to: '/seller', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'seller' },
-    { to: '/seller', label: 'Products', icon: Package, show: user?.role === 'seller', passive: true },
-    { to: '/seller', label: 'Business Settings', icon: Settings, show: user?.role === 'seller', passive: true },
-    { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'admin' },
-    { to: '/admin', label: 'Users', icon: User, show: user?.role === 'admin', passive: true },
-    { to: '/admin', label: 'Shops', icon: Store, show: user?.role === 'admin', passive: true },
-    { to: '/admin', label: 'Settings', icon: Settings, show: user?.role === 'admin', passive: true },
-    { to: '/login', label: 'Login', icon: User, show: !user },
-    { to: '/register', label: 'Register', icon: UserPlus, show: !user }
+    { to: '/seller?tab=shop', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'seller' },
+    { to: '/seller?tab=products', label: 'Products', icon: Package, show: user?.role === 'seller' },
+    { to: '/seller?tab=settings', label: 'Business Settings', icon: Settings, show: user?.role === 'seller' },
+    { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: user?.role === 'admin' },
+    { to: '/admin/users', label: 'Users', icon: User, show: user?.role === 'admin' },
+    { to: '/admin/shops', label: 'Shops', icon: Store, show: user?.role === 'admin' },
+    { to: '/admin/orders', label: 'Orders', icon: ClipboardList, show: user?.role === 'admin' },
+    { to: '/admin/categories', label: 'Categories', icon: Package, show: user?.role === 'admin' },
+    { to: '/admin/settings', label: 'Settings', icon: Settings, show: user?.role === 'admin' },
+    { to: '/login', label: 'Login', icon: User, show: !user && !loading },
+    { to: '/register', label: 'Register', icon: UserPlus, show: !user && !loading }
   ].filter((item) => item.show);
 
   const navClass = ({ isActive }) =>
@@ -100,16 +124,18 @@ export default function Navbar() {
               </NavLink>
             );
           })}
+          {role === 'customer' && (
           <div className="pt-2">
             <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-500">
-              <Heart className="h-4 w-4" />
+              <User className="h-4 w-4" />
               Wishlist
             </span>
             <span className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-500">
-              <MapPinned className="h-4 w-4" />
+              <Store className="h-4 w-4" />
               Addresses
             </span>
           </div>
+          )}
           {user ? (
             <button type="button" className="mt-4 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
@@ -128,14 +154,33 @@ export default function Navbar() {
               </span>
               LocalShop
             </Link>
-            <div className="hidden min-w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm md:flex">
-              <Search className="h-4 w-4" />
-              <span>Search for shops or products...</span>
-            </div>
-            <div className="hidden items-center gap-2 text-sm font-bold text-slate-600 xl:flex">
-              <MapPinned className={`h-4 w-4 ${theme.icon}`} />
-              <span>Bhopal, MP</span>
-            </div>
+            {isAdmin ? (
+              <label className="hidden min-w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm md:flex">
+                <Search className="h-4 w-4" />
+                <input
+                  className="w-full bg-transparent font-semibold outline-none"
+                  placeholder="Search admin data..."
+                  value={adminSearch}
+                  onChange={handleAdminSearch}
+                />
+              </label>
+            ) : role === 'seller' ? (
+              <label className={`hidden min-w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm md:flex ${sellerSearchEnabled ? '' : 'opacity-60'}`}>
+                <Search className="h-4 w-4" />
+                <input
+                  className="w-full bg-transparent font-semibold outline-none"
+                  placeholder={sellerSearchEnabled ? `Search ${sellerTab}...` : 'Open Products or Orders to search'}
+                  value={sellerSearch}
+                  onChange={handleSellerSearch}
+                  disabled={!sellerSearchEnabled}
+                />
+              </label>
+            ) : (
+              <div className="hidden min-w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-sm md:flex">
+                <Search className="h-4 w-4" />
+                <span>Search for shops or products...</span>
+              </div>
+            )}
           </div>
 
           <div className="order-first flex justify-center sm:order-none">
@@ -162,13 +207,13 @@ export default function Navbar() {
               })}
             </nav>
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-slate-500" />
-              <ShoppingCart className="h-5 w-5 text-slate-500" />
+              {isAdmin ? null : <Bell className="h-5 w-5 text-slate-500" />}
+              {role === 'customer' ? <ShoppingCart className="h-5 w-5 text-slate-500" /> : null}
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
                 <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black text-white ${theme.accent}`}>
-                  {(user?.name || 'G').slice(0, 1).toUpperCase()}
+                  {(loading ? 'C' : user?.name || 'G').slice(0, 1).toUpperCase()}
                 </div>
-                <span className="hidden text-sm font-bold text-slate-700 sm:inline">{user?.name || 'Guest'}</span>
+                <span className="hidden text-sm font-bold text-slate-700 sm:inline">{loading ? 'Checking...' : user?.name || 'Guest'}</span>
               </div>
             </div>
           </div>

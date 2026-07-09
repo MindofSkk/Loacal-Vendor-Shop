@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
 import { Button, Card, EmptyState, FixedFooter, Loader, ProductListCard, SectionHeader, StatusBadge, styles } from '../components/ui';
@@ -9,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 
 export default function ShopDetailsScreen({ route, navigation }) {
   const { shopId } = route.params;
-  const { addItem, items, subtotal } = useCart();
+  const { addItem, items, subtotal, updateQuantity } = useCart();
   const { showToast } = useToast();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
@@ -60,14 +62,11 @@ export default function ShopDetailsScreen({ route, navigation }) {
     }
   };
 
-  if (loading) return <Loader />;
-
-  return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: items.length > 0 ? 112 : 96 }]}>
+  const renderHeader = () => (
+    <View style={{ gap: 14 }}>
         <Card style={[styles.hero, { gap: 12 }]}>
           <View style={{ height: 150, borderRadius: 16, backgroundColor: '#ede9fe', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-            {shop?.logoUrl ? <Image source={{ uri: shop.logoUrl }} style={styles.image} /> : <Text style={styles.thumbText}>{shop?.name?.slice(0, 1) || 'S'}</Text>}
+            {shop?.logoUrl ? <Image source={{ uri: shop.logoUrl }} style={styles.image} /> : <Ionicons name="storefront-outline" size={42} color={colors.primary} />}
           </View>
           <View style={styles.between}>
             <View style={styles.flex}>
@@ -91,13 +90,19 @@ export default function ShopDetailsScreen({ route, navigation }) {
 
         <SectionHeader title="Products" />
         {productCategories.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {productCategories.map((category) => (
+          <FlatList
+            horizontal
+            data={productCategories}
+            keyExtractor={(category) => category}
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+            renderItem={({ item: category }) => (
               <Pressable
-                key={category}
                 onPress={() => setActiveCategory(category)}
                 style={{
                   minHeight: 38,
+                  maxWidth: 170,
                   paddingHorizontal: 13,
                   borderRadius: 999,
                   alignItems: 'center',
@@ -107,27 +112,53 @@ export default function ShopDetailsScreen({ route, navigation }) {
                   borderColor: activeCategory === category ? colors.primary : colors.border
                 }}
               >
-                <Text style={{ color: activeCategory === category ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{category}</Text>
+                <Text numberOfLines={1} style={{ color: activeCategory === category ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{category}</Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        ) : null}
-        {visibleProducts.length === 0 ? <EmptyState title="No products" message="This shop has not added products for this category yet." /> : null}
-        {visibleProducts.map((product) => (
-          <ProductListCard
-            key={product._id}
-            product={product}
-            disabled={!canOrder}
-            onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
-            onAdd={() => addToCart(product)}
+            )}
           />
-        ))}
-      </ScrollView>
+        ) : null}
+      </View>
+  );
+
+  if (loading) return <Loader />;
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <View style={styles.screenHeader}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backButton}>
+          <Ionicons name="arrow-back-outline" size={22} color={colors.ink} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Shop Details</Text>
+      </View>
+
+      <FlatList
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: items.length > 0 ? 190 : 116 }]}
+        data={visibleProducts}
+        keyExtractor={(product) => product._id}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={<EmptyState title="No products" message="This shop has not added products for this category yet." />}
+        renderItem={({ item: product }) => {
+          const cartItem = items.find((item) => item._id === product._id);
+          return (
+            <ProductListCard
+              product={product}
+              disabled={!canOrder}
+              quantity={cartItem?.quantity || 0}
+              onMinus={() => updateQuantity(product._id, (cartItem?.quantity || 0) - 1)}
+              onPlus={() => updateQuantity(product._id, (cartItem?.quantity || 0) + 1)}
+              onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+              onAdd={() => addToCart(product)}
+            />
+          );
+        }}
+      />
       {items.length > 0 ? (
         <FixedFooter>
           <Button title={`${cartQuantity} items | Rs.${subtotal} - View cart`} onPress={() => navigation.navigate('Cart', { screen: 'CartMain' })} />
         </FixedFooter>
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }

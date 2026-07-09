@@ -22,9 +22,9 @@ export default function CheckoutScreen({ navigation }) {
   const toPay = subtotal + deliveryCharge;
   const belowMinimum = items.length > 0 && subtotal < minimumOrder;
   const [address, setAddress] = useState({
-    fullAddress: [user?.address?.line1, user?.address?.area, user?.address?.city, user?.address?.pincode].filter(Boolean).join(', '),
-    landmark: user?.address?.landmark || '',
-    phone: user?.phone || '',
+    fullAddress: String([user?.address?.line1, user?.address?.area, user?.address?.city, user?.address?.pincode].filter(Boolean).join(', ')),
+    landmark: String(user?.address?.landmark || ''),
+    phone: String(user?.phone || '').replace(/\D/g, '').slice(0, 10),
     latitude: '',
     longitude: ''
   });
@@ -132,10 +132,12 @@ export default function CheckoutScreen({ navigation }) {
             label="Phone number"
             placeholder="10 digit mobile number"
             keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            inputMode="numeric"
             value={address.phone}
             error={errors.phone}
             maxLength={10}
-            onChangeText={(phone) => setAddress({ ...address, phone: phone.replace(/\D/g, '') })}
+            onChangeText={(phone) => setAddress((current) => ({ ...current, phone: String(phone).replace(/\D/g, '').slice(0, 10) }))}
           />
         </Card>
         <PaymentMethodCard onSelectUpi={showUpiComingSoon} />

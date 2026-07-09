@@ -60,9 +60,20 @@ const normalizeApprovalFields = (shopLike) =>
       pincode: shopLike.location?.pincode || '',
       landmark: shopLike.location?.landmark || '',
       latitude: shopLike.location?.latitude == null ? '' : Number(shopLike.location.latitude),
-      longitude: shopLike.location?.longitude == null ? '' : Number(shopLike.location.longitude)
+      longitude: shopLike.location?.longitude == null ? '' : Number(shopLike.location.longitude),
+      mapUrl: shopLike.location?.mapUrl || ''
     }
   });
+
+const withLocationMapUrl = (location = {}) => {
+  const nextLocation = { ...location };
+  if (nextLocation.latitude != null && nextLocation.latitude !== '' && nextLocation.longitude != null && nextLocation.longitude !== '') {
+    nextLocation.mapUrl = `https://www.google.com/maps?q=${nextLocation.latitude},${nextLocation.longitude}`;
+  } else {
+    delete nextLocation.mapUrl;
+  }
+  return nextLocation;
+};
 
 export const listShops = asyncHandler(async (req, res) => {
   const shops = await Shop.find(buildShopQuery(req.query))
@@ -108,6 +119,7 @@ export const createOrUpdateMyShop = asyncHandler(async (req, res) => {
   const deliveryBoys = (req.body.deliveryBoys || []).filter((contact) => contact?.name || contact?.phone);
   const payload = {
     ...req.body,
+    location: withLocationMapUrl(req.body.location),
     deliveryBoys,
     owner: req.user._id
   };
