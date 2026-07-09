@@ -81,9 +81,11 @@ export default function ProductFormScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={{ gap: 12 }}>
+      <Card style={[styles.hero, { gap: 8 }]}>
         <Text style={styles.subheading}>{product?._id ? 'Edit product' : 'Add product'}</Text>
         <Text style={styles.muted}>{businessType}</Text>
+      </Card>
+      <Card style={{ gap: 12 }}>
         <Input label={businessType === 'Restaurant' ? 'Item name' : 'Product name'} value={form.name} onChangeText={(name) => setForm({ ...form, name })} />
         <Input label="Description" multiline value={form.description} onChangeText={(description) => setForm({ ...form, description })} />
         <Input label="Price" keyboardType="numeric" value={form.price} onChangeText={(price) => setForm({ ...form, price })} />

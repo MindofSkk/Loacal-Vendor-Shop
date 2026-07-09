@@ -107,6 +107,16 @@ const orderSchema = new mongoose.Schema(
       required: true,
       min: 0
     },
+    paymentMethod: {
+      type: String,
+      enum: ['COD', 'UPI'],
+      default: 'COD'
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['PENDING', 'PAID', 'FAILED', 'NOT_REQUIRED'],
+      default: 'NOT_REQUIRED'
+    },
     notes: String,
     status: {
       type: String,

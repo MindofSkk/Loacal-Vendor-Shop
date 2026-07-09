@@ -27,10 +27,15 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={{ marginTop: 48 }}>
-          <Text style={styles.heading}>LocalShop Customer</Text>
-          <Text style={styles.muted}>Order from nearby restaurants, kirana, dairy and bakery shops.</Text>
+      <ScrollView contentContainerStyle={[styles.content, { flexGrow: 1, justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
+        <View style={{ alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <View style={{ width: 78, height: 78, borderRadius: 26, backgroundColor: '#6d28d9', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>LS</Text>
+          </View>
+          <View style={{ alignItems: 'center', gap: 4 }}>
+            <Text style={styles.heading}>LocalShop</Text>
+            <Text style={[styles.muted, { textAlign: 'center' }]}>Shop local essentials from nearby sellers.</Text>
+          </View>
         </View>
         <Card style={{ gap: 12 }}>
           <Text style={styles.subheading}>{mode === 'login' ? 'Login' : 'Create account'}</Text>

@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, Text } from 'react-native';
+import { Alert, Image, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { categoryApi, shopApi } from '../api/services';
 import { Button, Card, Input, OptionRow, styles } from '../components/ui';
@@ -86,13 +86,19 @@ export default function ShopProfileScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Card style={[styles.hero, { gap: 12 }]}>
+        <Text style={styles.heading}>{shop ? 'Edit shop profile' : 'Create shop profile'}</Text>
+        <Text style={styles.muted}>Keep shop details simple and clear for customers.</Text>
+      </Card>
       <Card style={{ gap: 12 }}>
         <Text style={styles.subheading}>Business type</Text>
         <OptionRow options={businessTypes} value={form.businessType} onChange={(businessType) => setForm({ ...form, businessType })} />
         <Input label="Shop name" value={form.name} onChangeText={(name) => setForm({ ...form, name })} />
         <Input label="Shop phone" keyboardType="phone-pad" value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} />
         <Input label="Description" value={form.description} onChangeText={(description) => setForm({ ...form, description })} />
-        {form.logoUrl ? <Image source={{ uri: form.logoUrl }} style={{ height: 140, borderRadius: 16 }} /> : null}
+        <View style={{ height: 150, borderRadius: 18, backgroundColor: '#ecfdf5', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+          {form.logoUrl ? <Image source={{ uri: form.logoUrl }} style={{ width: '100%', height: '100%' }} /> : <Text style={styles.muted}>Shop logo preview</Text>}
+        </View>
         <Button title="Upload shop logo" variant="secondary" onPress={uploadLogo} />
         <Input label="Logo URL" value={form.logoUrl} onChangeText={(logoUrl) => setForm({ ...form, logoUrl })} />
         <Input label="Delivery radius KM" keyboardType="numeric" value={String(form.deliveryRadiusKm)} onChangeText={(deliveryRadiusKm) => setForm({ ...form, deliveryRadiusKm })} />

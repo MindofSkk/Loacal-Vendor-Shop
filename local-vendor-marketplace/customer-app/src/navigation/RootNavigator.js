@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { Loader } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import AuthScreen from '../screens/AuthScreen';
@@ -46,16 +47,39 @@ function CartStack() {
   );
 }
 
+function getTabIcon(routeName, focused) {
+  const icons = {
+    Home: focused ? 'home' : 'home-outline',
+    Search: focused ? 'search' : 'search-outline',
+    Orders: focused ? 'receipt' : 'receipt-outline',
+    Cart: focused ? 'cart' : 'cart-outline',
+    Profile: focused ? 'person' : 'person-outline'
+  };
+  return icons[routeName] || 'ellipse-outline';
+}
+
 function AppTabs() {
   return (
     <Tabs.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarLabelStyle: { fontWeight: '900' }
-      }}
+        tabBarInactiveTintColor: colors.muted,
+        tabBarLabelStyle: { fontWeight: '900', fontSize: 12 },
+        tabBarStyle: {
+          height: 68,
+          paddingTop: 8,
+          paddingBottom: 10,
+          borderTopColor: colors.border,
+          backgroundColor: '#fff'
+        },
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={getTabIcon(route.name, focused)} size={22} color={color} />
+        )
+      })}
     >
       <Tabs.Screen name="Home" component={HomeStack} />
+      <Tabs.Screen name="Search" component={HomeStack} />
       <Tabs.Screen name="Orders" component={OrdersStack} />
       <Tabs.Screen name="Cart" component={CartStack} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />

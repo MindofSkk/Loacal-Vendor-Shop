@@ -18,13 +18,13 @@ export default function OrderDetailsScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={{ gap: 10 }}>
+      <Card style={[styles.hero, { gap: 10 }]}>
         <View style={styles.between}>
           <Text style={styles.heading}>#{order._id.slice(-6)}</Text>
           <StatusBadge status={order.status} />
         </View>
         <Text style={styles.muted}>{order.shop?.name}</Text>
-        <Text style={styles.price}>₹{order.subtotal}</Text>
+        <Text style={styles.price}>Rs.{order.subtotal}</Text>
       </Card>
       <Card style={{ gap: 8 }}>
         <Text style={styles.subheading}>Delivery</Text>
@@ -33,11 +33,22 @@ export default function OrderDetailsScreen({ route, navigation }) {
         <Text style={styles.muted}>Phone: {order.deliveryAddress?.phone}</Text>
       </Card>
       <Card style={{ gap: 8 }}>
+        <Text style={styles.subheading}>Payment</Text>
+        <View style={styles.between}>
+          <Text style={styles.muted}>Payment Method</Text>
+          <Text style={styles.title}>{order.paymentMethod === 'UPI' ? 'UPI' : 'Cash on Delivery'}</Text>
+        </View>
+        <View style={styles.between}>
+          <Text style={styles.muted}>Payment Status</Text>
+          <Text style={styles.title}>{order.paymentStatus === 'NOT_REQUIRED' || !order.paymentStatus ? 'Not Required' : order.paymentStatus}</Text>
+        </View>
+      </Card>
+      <Card style={{ gap: 8 }}>
         <Text style={styles.subheading}>Items</Text>
         {order.items.map((item) => (
           <View key={`${item.product}-${item.name}`} style={styles.between}>
             <Text style={styles.muted}>{item.quantity} x {item.name}</Text>
-            <Text style={styles.title}>₹{item.price * item.quantity}</Text>
+            <Text style={styles.title}>Rs.{item.price * item.quantity}</Text>
           </View>
         ))}
       </Card>

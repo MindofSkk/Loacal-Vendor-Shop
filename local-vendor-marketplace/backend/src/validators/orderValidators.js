@@ -10,6 +10,8 @@ export const createOrderValidator = [
   body('deliveryAddress.landmark').optional().trim(),
   body('deliveryAddress.latitude').optional({ nullable: true }).isFloat().withMessage('Latitude must be a number'),
   body('deliveryAddress.longitude').optional({ nullable: true }).isFloat().withMessage('Longitude must be a number'),
+  body('paymentMethod').optional().isIn(['COD', 'UPI']).withMessage('Invalid payment method'),
+  body('paymentStatus').optional().isIn(['PENDING', 'PAID', 'FAILED', 'NOT_REQUIRED']).withMessage('Invalid payment status'),
   body('notes').optional().trim()
 ];
 

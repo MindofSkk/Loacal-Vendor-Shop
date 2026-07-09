@@ -59,7 +59,14 @@ export default function BusinessSettingsScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Button title="Profile / Logout" variant="secondary" onPress={() => navigation.navigate('Profile')} />
+      <Card style={[styles.hero, { gap: 10 }]}>
+        <Text style={styles.heading}>Business Settings</Text>
+        <Text style={styles.muted}>Working hours, temporary closure and delivery rules.</Text>
+        <View style={styles.row}>
+          <Button title="Profile" variant="secondary" onPress={() => navigation.navigate('Profile')} style={styles.flex} />
+          <Button title="Delivery Boys" variant="secondary" onPress={() => navigation.getParent()?.navigate('Dashboard', { screen: 'DeliveryBoys' })} style={styles.flex} />
+        </View>
+      </Card>
       <Card style={{ gap: 12 }}>
         <Text style={styles.subheading}>Delivery settings</Text>
         <Input label="Delivery Radius KM" keyboardType="numeric" value={String(settings.deliverySettings.radiusKm)} onChangeText={(radiusKm) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, radiusKm } })} />

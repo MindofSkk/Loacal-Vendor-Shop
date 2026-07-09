@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { shopApi } from '../api/services';
-import { Button, Card, Input, styles } from '../components/ui';
+import { Button, Card, EmptyState, Input, styles } from '../components/ui';
 
 export default function DeliveryBoysScreen({ route, navigation }) {
   const [shop, setShop] = useState(route.params?.shop || null);
@@ -36,6 +36,7 @@ export default function DeliveryBoysScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Delivery Boys</Text>
+      {deliveryBoys.length === 0 ? <EmptyState title="No contacts" message="Add delivery boy phone numbers to share orders faster." /> : null}
       {deliveryBoys.map((contact, index) => (
         <Card key={`${contact.name}-${index}`} style={{ gap: 10 }}>
           <Input label="Name" value={contact.name} onChangeText={(value) => update(index, 'name', value)} />

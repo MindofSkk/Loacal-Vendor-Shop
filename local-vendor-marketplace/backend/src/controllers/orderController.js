@@ -25,7 +25,7 @@ const isOrderable = (product) => {
 };
 
 export const createOrder = asyncHandler(async (req, res) => {
-  const { items, deliveryAddress, notes } = req.body;
+  const { items, deliveryAddress, notes, paymentMethod = 'COD' } = req.body;
   const productIds = items.map((item) => item.product);
   const products = await Product.find({ _id: { $in: productIds } }).populate('shop');
   const productMap = new Map(products.map((product) => [product._id.toString(), product]));
@@ -96,7 +96,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   if (subtotal < Number(shop.deliverySettings?.minimumOrder || 0)) {
-    throw new ApiError(400, `Minimum order amount is ₹${shop.deliverySettings.minimumOrder}`);
+    throw new ApiError(400, `Minimum order amount is Rs.${shop.deliverySettings.minimumOrder}`);
   }
 
   const deliveryEligibility = getDeliveryEligibility(shop, normalizedDeliveryAddress);
@@ -112,6 +112,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     items: orderItems,
     deliveryAddress: normalizedDeliveryAddress,
     subtotal,
+    paymentMethod,
+    paymentStatus: paymentMethod === 'COD' ? 'NOT_REQUIRED' : 'PENDING',
     notes
   });
 

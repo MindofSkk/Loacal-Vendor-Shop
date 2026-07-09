@@ -1,10 +1,10 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
-import { Button, Card, EmptyState, Loader, ProductCard, ShopCard, styles } from '../components/ui';
-import { categories, colors } from '../constants';
+import { CategoryCard, CompactLocationHeader, EmptyState, Loader, ProductCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
+import { categories } from '../constants';
 import { useCart } from '../context/CartContext';
 
 export default function HomeScreen({ navigation }) {
@@ -13,6 +13,9 @@ export default function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [location, setLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -23,8 +26,13 @@ export default function HomeScreen({ navigation }) {
         shopApi.list({ category: '', ...locationParams }),
         productApi.list({})
       ]);
-      const nextShops = selectedCategory ? shopRes.data.filter((shop) => shop.businessType === selectedCategory) : shopRes.data;
-      const nextProducts = selectedCategory ? productRes.data.filter((product) => product.businessType === selectedCategory) : productRes.data;
+      const query = search.trim().toLowerCase();
+      const nextShops = shopRes.data
+        .filter((shop) => (selectedCategory ? shop.businessType === selectedCategory : true))
+        .filter((shop) => (query ? `${shop.name} ${shop.businessType} ${shop.location?.area || ''}`.toLowerCase().includes(query) : true));
+      const nextProducts = productRes.data
+        .filter((product) => (selectedCategory ? product.businessType === selectedCategory : true))
+        .filter((product) => (query ? `${product.name} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''}`.toLowerCase().includes(query) : true));
       setShops(nextShops);
       setProducts(nextProducts);
     } catch (err) {
@@ -32,20 +40,33 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [location, selectedCategory]);
+  }, [location, selectedCategory, search]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const captureLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Location denied', 'You can still browse shops manually.');
-      return;
+    setLocationLoading(true);
+    setLocationError('');
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const message = 'Unable to fetch location. Please enter manually.';
+        setLocationError(message);
+        Alert.alert('Location denied', message);
+        return;
+      }
+      const current = await Location.getCurrentPositionAsync({});
+      setLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude });
+      Alert.alert('Location added', 'Location added');
+    } catch (_err) {
+      const message = 'Unable to fetch location. Please enter manually.';
+      setLocationError(message);
+      Alert.alert('Location error', message);
+    } finally {
+      setLocationLoading(false);
     }
-    const current = await Location.getCurrentPositionAsync({});
-    setLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude });
   };
 
   const addToCart = (product) => {
@@ -61,56 +82,49 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-      <Card style={{ backgroundColor: '#ede9fe', gap: 12 }}>
-        <Text style={styles.heading}>Order from nearby local shops</Text>
-        <Text style={styles.muted}>Restaurant, Grocery / Kirana, Dairy and Bakery products delivered by local sellers.</Text>
-        <Button title={location ? 'Location added' : 'Use my location'} variant={location ? 'secondary' : 'primary'} onPress={captureLocation} />
-      </Card>
+      <CompactLocationHeader
+        greeting="Hello, Rahul!"
+        addressText={location ? 'Current location selected' : 'nagri, Ranchi, 835303'}
+        loading={locationLoading}
+        onPressLocation={captureLocation}
+      />
+      {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+
+      <SearchBar value={search} onChangeText={setSearch} />
 
       <View style={{ gap: 10 }}>
-        <Text style={styles.subheading}>Shop by category</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          <Pressable onPress={() => setSelectedCategory('')} style={[categoryStyle.chip, !selectedCategory ? categoryStyle.activeChip : null]}>
-            <Text style={[categoryStyle.chipText, !selectedCategory ? categoryStyle.activeChipText : null]}>All</Text>
-          </Pressable>
+        <SectionHeader title="Categories" action="See all" onAction={() => setSelectedCategory('')} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
           {categories.map((category) => (
-            <Pressable key={category} onPress={() => setSelectedCategory(category)} style={[categoryStyle.chip, selectedCategory === category ? categoryStyle.activeChip : null]}>
-              <Text style={[categoryStyle.chipText, selectedCategory === category ? categoryStyle.activeChipText : null]}>{category.replace(' Store', '')}</Text>
-            </Pressable>
+            <CategoryCard
+              key={category}
+              title={category}
+              subtitle={category === 'Restaurant' ? 'Food' : category.includes('Grocery') ? 'Kirana' : 'Fresh'}
+              active={selectedCategory === category}
+              onPress={() => setSelectedCategory(category)}
+            />
           ))}
         </View>
       </View>
 
-      <Text style={styles.subheading}>{selectedCategory || 'Nearby Shops'}</Text>
+      <SectionHeader title="Nearby Shops" action="View all" onAction={() => setSelectedCategory('')} />
       {shops.length === 0 ? (
         <EmptyState title="No shops found" message="Try another category or run the quick setup seed." />
       ) : (
         shops.map((shop) => <ShopCard key={shop._id} shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />)
       )}
 
-      <Text style={styles.subheading}>Fresh products</Text>
-      {products.slice(0, 12).map((product) => (
-        <ProductCard
-          key={product._id}
-          product={product}
-          onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
-          onAdd={() => addToCart(product)}
-        />
-      ))}
+      <SectionHeader title="Bestsellers" action="See all" />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+        {products.slice(0, 12).map((product) => (
+          <ProductCard
+            key={product._id}
+            product={product}
+            onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+            onAdd={() => addToCart(product)}
+          />
+        ))}
+      </ScrollView>
     </ScrollView>
   );
 }
-
-const categoryStyle = {
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: colors.border
-  },
-  activeChip: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontWeight: '900', color: colors.ink },
-  activeChipText: { color: '#fff' }
-};

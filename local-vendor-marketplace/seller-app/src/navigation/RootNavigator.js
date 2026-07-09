@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { Loader } from '../components/ui';
 import { colors } from '../constants';
 import { useAuth } from '../context/AuthContext';
@@ -54,19 +55,40 @@ function SettingsStack() {
   );
 }
 
+function getTabIcon(routeName, focused) {
+  const icons = {
+    Dashboard: focused ? 'storefront' : 'storefront-outline',
+    Orders: focused ? 'receipt' : 'receipt-outline',
+    Products: focused ? 'cube' : 'cube-outline',
+    Settings: focused ? 'settings' : 'settings-outline'
+  };
+  return icons[routeName] || 'ellipse-outline';
+}
+
 function AppTabs() {
   return (
     <Tabs.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarLabelStyle: { fontWeight: '900' }
-      }}
+        tabBarInactiveTintColor: colors.muted,
+        tabBarLabelStyle: { fontWeight: '900', fontSize: 12 },
+        tabBarStyle: {
+          height: 68,
+          paddingTop: 8,
+          paddingBottom: 10,
+          borderTopColor: colors.border,
+          backgroundColor: '#fff'
+        },
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={getTabIcon(route.name, focused)} size={22} color={color} />
+        )
+      })}
     >
       <Tabs.Screen name="Dashboard" component={DashboardStack} />
-      <Tabs.Screen name="Products" component={ProductsStack} />
       <Tabs.Screen name="Orders" component={OrdersStack} />
-      <Tabs.Screen name="Settings" component={SettingsStack} />
+      <Tabs.Screen name="Products" component={ProductsStack} />
+      <Tabs.Screen name="Settings" component={SettingsStack} options={{ title: 'More' }} />
     </Tabs.Navigator>
   );
 }
