@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "node --test",
     "seed": "node scripts/seedCategories.js",
-    "seed:setup": "node scripts/seedQuickSetup.js"
+    "seed:setup": "node scripts/seedQuickSetup.js",
+    "seed:biki-grocery": "node scripts/seedBikiGroceryProducts.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

@@ -42,7 +42,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
       </Card>
-      <MenuCard icon="storefront-outline" title="Shop Profile" subtitle="Edit shop details, logo and address" onPress={() => goDashboardStack('ShopProfile')} />
+      <MenuCard icon="storefront-outline" title="View Shop / Edit Profile" subtitle="Edit shop details, logo and address" onPress={() => goDashboardStack('ShopProfile')} />
       <MenuCard icon="settings-outline" title="Business Settings" subtitle="Hours, delivery rules and closures" onPress={() => navigation.navigate('SettingsMain')} />
       <MenuCard icon="people-outline" title="Delivery Boys" subtitle="Manage order sharing contacts" onPress={() => goDashboardStack('DeliveryBoys')} />
       <MenuCard icon="help-circle-outline" title="Help & Support" subtitle="Support details coming soon" onPress={() => {}} />

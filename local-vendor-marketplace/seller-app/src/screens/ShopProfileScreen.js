@@ -4,7 +4,7 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { categoryApi, shopApi } from '../api/services';
-import { Button, Card, Input, OptionRow, styles } from '../components/ui';
+import { Button, Card, Input, Loader, OptionRow, styles } from '../components/ui';
 import { businessTypes } from '../constants';
 import { useToast } from '../context/ToastContext';
 
@@ -23,32 +23,53 @@ export default function ShopProfileScreen({ route, navigation }) {
   const { showToast } = useToast();
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyShop);
+  const [currentShop, setCurrentShop] = useState(route.params?.shop || null);
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const shop = route.params?.shop;
+
+  const hydrateShop = (nextShop) => {
+    if (!nextShop) return;
+    setCurrentShop(nextShop);
+    setForm({
+      ...emptyShop,
+      ...nextShop,
+      deliveryRadiusKm: String(nextShop.deliveryRadiusKm || 5),
+      location: {
+        area: nextShop.location?.area || '',
+        city: nextShop.location?.city || '',
+        pincode: nextShop.location?.pincode || '',
+        landmark: nextShop.location?.landmark || '',
+        latitude: nextShop.location?.latitude == null ? '' : String(nextShop.location.latitude),
+        longitude: nextShop.location?.longitude == null ? '' : String(nextShop.location.longitude)
+      },
+      deliveryBoys: nextShop.deliveryBoys || []
+    });
+  };
 
   useEffect(() => {
     categoryApi
       .list()
       .then(({ data }) => setCategories(data.filter((category) => category.isActive)))
       .catch((err) => showToast({ type: 'error', message: getApiError(err) }));
+
     if (shop) {
-      setForm({
-        ...emptyShop,
-        ...shop,
-        deliveryRadiusKm: String(shop.deliveryRadiusKm || 5),
-        location: {
-          area: shop.location?.area || '',
-          city: shop.location?.city || '',
-          pincode: shop.location?.pincode || '',
-          landmark: shop.location?.landmark || '',
-          latitude: shop.location?.latitude == null ? '' : String(shop.location.latitude),
-          longitude: shop.location?.longitude == null ? '' : String(shop.location.longitude)
-        },
-        deliveryBoys: shop.deliveryBoys || []
-      });
+      hydrateShop(shop);
+      return;
     }
+
+    setLoading(true);
+    shopApi
+      .myShop()
+      .then(({ data }) => hydrateShop(data))
+      .catch((err) => {
+        if (err.response?.status !== 404) {
+          showToast({ type: 'error', message: getApiError(err) });
+        }
+      })
+      .finally(() => setLoading(false));
   }, [shop, showToast]);
 
   const updateLocation = (key, value) => setForm({ ...form, location: { ...form.location, [key]: value } });
@@ -115,10 +136,12 @@ export default function ShopProfileScreen({ route, navigation }) {
     }
   };
 
+  if (loading) return <Loader message="Loading shop profile..." />;
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Card style={[styles.hero, { gap: 12 }]}>
-        <Text style={styles.heading}>{shop ? 'Edit shop profile' : 'Create shop profile'}</Text>
+        <Text style={styles.heading}>{currentShop ? 'Edit shop profile' : 'Create shop profile'}</Text>
         <Text style={styles.muted}>Keep shop details simple and clear for customers.</Text>
       </Card>
       <Card style={{ gap: 12 }}>

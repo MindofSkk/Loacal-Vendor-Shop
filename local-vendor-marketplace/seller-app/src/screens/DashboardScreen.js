@@ -71,7 +71,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
           {shop ? <StatusBadge status={shop.status} /> : null}
         </View>
-        <Button title={shop ? 'View Shop / Edit Profile' : 'Create Shop Profile'} onPress={() => navigation.navigate('ShopProfile', { shop })} />
+        {!shop ? <Button title="Create Shop Profile" onPress={() => navigation.navigate('ShopProfile', { shop })} /> : null}
       </Card>
 
       <View style={styles.row}>
