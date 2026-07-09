@@ -6,9 +6,11 @@ import { productApi, shopApi } from '../api/services';
 import { CategoryCard, CompactLocationHeader, EmptyState, Loader, ProductCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
 import { categories } from '../constants';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
+  const { showToast } = useToast();
   const [shops, setShops] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -72,9 +74,14 @@ export default function HomeScreen({ navigation }) {
   const addToCart = (product) => {
     try {
       addItem(product);
-      Alert.alert('Added', 'Product added to cart.');
+      showToast({
+        type: 'success',
+        message: 'Added to cart',
+        actionLabel: 'View Cart',
+        onAction: () => navigation.navigate('Cart', { screen: 'CartMain' })
+      });
     } catch (err) {
-      Alert.alert('Cart', err.message);
+      showToast({ type: 'error', message: err.message });
     }
   };
 
@@ -83,7 +90,7 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
       <CompactLocationHeader
-        greeting="Hello, Rahul!"
+        greeting="Hello, SkK!"
         addressText={location ? 'Current location selected' : 'nagri, Ranchi, 835303'}
         loading={locationLoading}
         onPressLocation={captureLocation}

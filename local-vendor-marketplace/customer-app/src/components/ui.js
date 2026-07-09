@@ -140,9 +140,11 @@ export function DeliveryAddressCard({
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
         </View>
-        <Pressable onPress={onEditAddress} hitSlop={10}>
-          <Text style={styles.link}>Change</Text>
-        </Pressable>
+        {onEditAddress ? (
+          <Pressable onPress={onEditAddress} hitSlop={10}>
+            <Text style={styles.link}>Change</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Pressable
         disabled={loading}

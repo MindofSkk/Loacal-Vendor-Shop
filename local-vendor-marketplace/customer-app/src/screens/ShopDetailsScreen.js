@@ -4,10 +4,12 @@ import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
 import { Button, Card, EmptyState, Loader, ProductCard, SectionHeader, StatusBadge, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
 export default function ShopDetailsScreen({ route, navigation }) {
   const { shopId } = route.params;
   const { addItem, items, subtotal } = useCart();
+  const { showToast } = useToast();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +32,14 @@ export default function ShopDetailsScreen({ route, navigation }) {
   const addToCart = (product) => {
     try {
       addItem(product);
-      Alert.alert('Added', 'Product added to cart.');
+      showToast({
+        type: 'success',
+        message: 'Added to cart',
+        actionLabel: 'View Cart',
+        onAction: () => navigation.navigate('Cart', { screen: 'CartMain' })
+      });
     } catch (err) {
-      Alert.alert('Cart', err.message);
+      showToast({ type: 'error', message: err.message });
     }
   };
 

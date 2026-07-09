@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Loader } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import AuthScreen from '../screens/AuthScreen';
 import CartScreen from '../screens/CartScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
@@ -59,6 +60,9 @@ function getTabIcon(routeName, focused) {
 }
 
 function AppTabs() {
+  const { items } = useCart();
+  const cartQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -81,7 +85,14 @@ function AppTabs() {
       <Tabs.Screen name="Home" component={HomeStack} />
       <Tabs.Screen name="Search" component={HomeStack} />
       <Tabs.Screen name="Orders" component={OrdersStack} />
-      <Tabs.Screen name="Cart" component={CartStack} />
+      <Tabs.Screen
+        name="Cart"
+        component={CartStack}
+        options={{
+          tabBarBadge: cartQuantity > 0 ? cartQuantity : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontWeight: '900' }
+        }}
+      />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );

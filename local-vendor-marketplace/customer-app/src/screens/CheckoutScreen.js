@@ -1,19 +1,20 @@
 import * as Location from 'expo-location';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
 import { Button, Card, DeliveryAddressCard, Input, PaymentMethodCard, PriceRow, styles } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
 export default function CheckoutScreen({ navigation }) {
   const { user } = useAuth();
   const { items, subtotal, clearCart } = useCart();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
-  const [showAddressForm, setShowAddressForm] = useState(false);
   const shop = items[0]?.shop;
   const minimumOrder = Number(shop?.deliverySettings?.minimumOrder || 0);
   const deliveryCharge = Number(shop?.deliverySettings?.deliveryCharge || 0);
@@ -35,40 +36,38 @@ export default function CheckoutScreen({ navigation }) {
       if (status !== 'granted') {
         const message = 'Location permission denied. Enter address manually.';
         setLocationError(message);
-        Alert.alert('Location denied', message);
-        setShowAddressForm(true);
+        showToast({ type: 'warning', message });
         return;
       }
       const current = await Location.getCurrentPositionAsync({});
-      setAddress({ ...address, latitude: current.coords.latitude, longitude: current.coords.longitude });
-      Alert.alert('Location added', 'Location added');
+      setAddress((currentAddress) => ({ ...currentAddress, latitude: current.coords.latitude, longitude: current.coords.longitude }));
+      showToast({ type: 'success', message: 'Location added' });
     } catch (_err) {
       const message = 'Location permission denied. Enter address manually.';
       setLocationError(message);
-      Alert.alert('Location error', message);
-      setShowAddressForm(true);
+      showToast({ type: 'warning', message });
     } finally {
       setLocationLoading(false);
     }
   };
 
   const showUpiComingSoon = () => {
-    Alert.alert('Coming soon', 'UPI payment is coming soon.');
+    showToast({ type: 'info', message: 'UPI payment is coming soon.' });
   };
 
   const placeOrder = async () => {
     if (!address.fullAddress.trim()) {
-      Alert.alert('Address required', 'Please enter full delivery address.');
+      showToast({ type: 'warning', message: 'Please enter full delivery address.' });
       return;
     }
 
     if (!/^[6-9]\d{9}$/.test(address.phone.trim())) {
-      Alert.alert('Valid phone required', 'Please enter a valid 10 digit Indian mobile number.');
+      showToast({ type: 'warning', message: 'Enter a valid 10 digit mobile number.' });
       return;
     }
 
     if (belowMinimum) {
-      Alert.alert('Minimum order', `Minimum order for this shop is Rs.${minimumOrder}.`);
+      showToast({ type: 'warning', message: `Minimum order for this shop is Rs.${minimumOrder}.` });
       return;
     }
 
@@ -89,7 +88,7 @@ export default function CheckoutScreen({ navigation }) {
       clearCart();
       navigation.replace('OrderSuccess', { order: data });
     } catch (err) {
-      Alert.alert('Order failed', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
     } finally {
       setLoading(false);
     }
@@ -105,17 +104,31 @@ export default function CheckoutScreen({ navigation }) {
           loading={locationLoading}
           error={locationError}
           onUseCurrentLocation={captureLocation}
-          onEditAddress={() => setShowAddressForm((current) => !current)}
         />
-        {showAddressForm ? (
-          <Card style={{ gap: 12 }}>
-            <Text style={styles.subheading}>Edit address</Text>
-            <Input label="Full address" multiline value={address.fullAddress} onChangeText={(fullAddress) => setAddress({ ...address, fullAddress })} />
-            <Input label="Landmark" value={address.landmark} onChangeText={(landmark) => setAddress({ ...address, landmark })} />
-            <Input label="Phone number" keyboardType="phone-pad" value={address.phone} onChangeText={(phone) => setAddress({ ...address, phone })} />
-            <Button title="Save address" onPress={() => setShowAddressForm(false)} />
-          </Card>
-        ) : null}
+        <Card style={{ gap: 12 }}>
+          <Text style={styles.subheading}>Delivery details</Text>
+          <Input
+            label="Full address"
+            placeholder="House no, street, area, city, pincode"
+            multiline
+            value={address.fullAddress}
+            onChangeText={(fullAddress) => setAddress({ ...address, fullAddress })}
+          />
+          <Input
+            label="Landmark"
+            placeholder="Near school, temple, main road..."
+            value={address.landmark}
+            onChangeText={(landmark) => setAddress({ ...address, landmark })}
+          />
+          <Input
+            label="Phone number"
+            placeholder="10 digit mobile number"
+            keyboardType="phone-pad"
+            value={address.phone}
+            maxLength={10}
+            onChangeText={(phone) => setAddress({ ...address, phone: phone.replace(/\D/g, '') })}
+          />
+        </Card>
         <PaymentMethodCard onSelectUpi={showUpiComingSoon} />
         <Card style={{ gap: 12 }}>
           <Text style={styles.subheading}>Order summary</Text>

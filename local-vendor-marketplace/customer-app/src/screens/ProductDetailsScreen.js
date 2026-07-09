@@ -4,10 +4,12 @@ import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
 import { Button, Card, Loader, StatusBadge, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
-export default function ProductDetailsScreen({ route }) {
+export default function ProductDetailsScreen({ route, navigation }) {
   const { productId } = route.params;
   const { addItem } = useCart();
+  const { showToast } = useToast();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,9 +24,14 @@ export default function ProductDetailsScreen({ route }) {
   const addToCart = () => {
     try {
       addItem(product);
-      Alert.alert('Added', 'Product added to cart.');
+      showToast({
+        type: 'success',
+        message: 'Added to cart',
+        actionLabel: 'View Cart',
+        onAction: () => navigation.navigate('Cart', { screen: 'CartMain' })
+      });
     } catch (err) {
-      Alert.alert('Cart', err.message);
+      showToast({ type: 'error', message: err.message });
     }
   };
 

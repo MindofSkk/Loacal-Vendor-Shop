@@ -3,6 +3,7 @@ import { enableScreens } from 'react-native-screens';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
+import { ToastProvider } from './src/context/ToastContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 enableScreens(false);
@@ -12,9 +13,11 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <CartProvider>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
+          <ToastProvider>
+            <NavigationContainer>
+              <RootNavigator />
+            </NavigationContainer>
+          </ToastProvider>
         </CartProvider>
       </AuthProvider>
     </SafeAreaProvider>
