@@ -3,7 +3,7 @@ import { Image, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
-import { Button, Card, FixedFooter, Loader, StatusBadge, styles } from '../components/ui';
+import { AvailabilityIcon, Button, Card, FixedFooter, Loader, ProductTraitBadge, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 
@@ -54,12 +54,13 @@ export default function ProductDetailsScreen({ route, navigation }) {
         <Card style={{ gap: 12 }}>
           <View style={styles.between}>
             <Text style={[styles.heading, { flex: 1 }]}>{product?.name}</Text>
-            <StatusBadge status={unavailable ? 'Unavailable' : 'Available'} />
+            <AvailabilityIcon unavailable={unavailable} />
           </View>
           <Text style={styles.muted}>{product?.shop?.name || 'Local shop'}</Text>
           <Text style={[styles.price, { fontSize: 28 }]}>Rs.{product?.price}</Text>
           <Text style={styles.muted}>{product?.description || 'Fresh from a nearby shop.'}</Text>
           <View style={styles.metaPills}>
+            <ProductTraitBadge product={product} />
             {product?.brand ? <Text style={styles.pill}>{product.brand}</Text> : null}
             {product?.foodCategory ? <Text style={styles.pill}>{product.foodCategory}</Text> : null}
             {product?.groceryCategory ? <Text style={styles.pill}>{product.groceryCategory}</Text> : null}

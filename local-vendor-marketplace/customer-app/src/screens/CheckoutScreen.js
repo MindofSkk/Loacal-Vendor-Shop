@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
-import { Button, Card, DeliveryAddressCard, FixedFooter, Input, PaymentMethodCard, PriceRow, styles } from '../components/ui';
+import { Button, Card, DeliveryAddressCard, Input, PaymentMethodCard, PriceRow, styles } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
@@ -103,7 +103,7 @@ export default function CheckoutScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 120 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 116 }]} keyboardShouldPersistTaps="handled">
         <DeliveryAddressCard
           addressText={address.fullAddress}
           latitude={address.latitude}
@@ -148,15 +148,22 @@ export default function CheckoutScreen({ navigation }) {
           <PriceRow label="To pay" value={toPay} strong />
           {minimumOrder > 0 ? <Text style={belowMinimum ? { color: '#b45309', fontWeight: '900' } : styles.muted}>Minimum order: Rs.{minimumOrder}</Text> : null}
         </Card>
+        <Card style={{ gap: 12 }}>
+          <View style={styles.footerSummaryRow}>
+            <View>
+              <Text style={styles.footerSummaryLabel}>To pay on delivery</Text>
+              <Text style={styles.footerSummaryValue}>Rs.{toPay}</Text>
+            </View>
+            <Text style={styles.muted}>{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
+          </View>
+          <Button
+            title="Place Order"
+            loading={loading}
+            disabled={loading || items.length === 0 || belowMinimum}
+            onPress={placeOrder}
+          />
+        </Card>
       </ScrollView>
-      <FixedFooter>
-        <Button
-          title="Place Order"
-          loading={loading}
-          disabled={loading || !address.fullAddress || !address.phone || items.length === 0 || belowMinimum}
-          onPress={placeOrder}
-        />
-      </FixedFooter>
     </KeyboardAvoidingView>
   );
 }

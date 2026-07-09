@@ -122,7 +122,12 @@ export default function HomeScreen({ navigation }) {
       />
       {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
 
-      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} />
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        onClear={() => setSearch('')}
+        onVoicePress={() => showToast({ type: 'info', message: 'Keyboard opened. Tap the keyboard mic and speak to search.' })}
+      />
 
       <View style={{ gap: 10 }}>
         <SectionHeader title="Categories" action="See all" onAction={() => setSelectedCategory('')} />

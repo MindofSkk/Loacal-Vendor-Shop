@@ -61,7 +61,13 @@ export default function ShopListingScreen({ navigation }) {
         </View>
         <Ionicons name="share-social-outline" size={21} color={colors.ink} />
       </View>
-      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder={`Search in ${category.replace(' Store', '')}...`} />
+      <SearchBar
+        value={search}
+        onChangeText={setSearch}
+        onClear={() => setSearch('')}
+        onVoicePress={() => showToast({ type: 'info', message: 'Keyboard opened. Tap the keyboard mic and speak to search.' })}
+        placeholder={`Search in ${category.replace(' Store', '')}...`}
+      />
       <FlatList
         horizontal
         data={categories}

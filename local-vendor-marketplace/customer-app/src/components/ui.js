@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants';
@@ -111,11 +112,18 @@ export function CompactLocationHeader({ greeting = 'Hello!', addressText, loadin
   );
 }
 
-export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search for shops or products...' }) {
+export function SearchBar({ value, onChangeText, onClear, onVoicePress, placeholder = 'Search for shops or products...' }) {
+  const inputRef = useRef(null);
+  const handleVoicePress = () => {
+    inputRef.current?.focus();
+    onVoicePress?.();
+  };
+
   return (
     <View style={styles.searchShell}>
       <Ionicons name="search-outline" size={18} color={colors.muted} />
       <TextInput
+        ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -129,7 +137,9 @@ export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search 
           <Ionicons name="close-circle" size={19} color={colors.muted} />
         </Pressable>
       ) : (
-        <Ionicons name="mic-outline" size={18} color={colors.primary} />
+        <Pressable onPress={handleVoicePress} hitSlop={10} style={styles.searchClearButton}>
+          <Ionicons name="mic-outline" size={18} color={colors.primary} />
+        </Pressable>
       )}
     </View>
   );
@@ -137,6 +147,33 @@ export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search 
 
 export function FixedFooter({ children, style }) {
   return <View style={[styles.fixedFooter, style]}>{children}</View>;
+}
+
+export function CartPreviewBar({ items, subtotal, quantity, onPress }) {
+  const previewItems = items.slice(0, 3);
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.cartPreviewBar, pressed ? styles.pressed : null]}>
+      <View style={styles.cartPreviewImages}>
+        {previewItems.map((item, index) => {
+          const image = item.images?.[0]?.url;
+          return (
+            <View key={`${item._id}-${index}`} style={[styles.cartPreviewThumb, { marginLeft: index === 0 ? 0 : -10 }]}>
+              {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={16} color={colors.primary} />}
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.flex}>
+        <Text style={styles.cartPreviewTitle} numberOfLines={1}>{quantity} {quantity === 1 ? 'item' : 'items'} in cart</Text>
+        <Text style={styles.cartPreviewSubtitle}>Rs.{subtotal}</Text>
+      </View>
+      <View style={styles.cartPreviewCta}>
+        <Text style={styles.cartPreviewCtaText}>View Cart</Text>
+        <Ionicons name="chevron-forward" size={16} color="#fff" />
+      </View>
+    </Pressable>
+  );
 }
 
 export function DeliveryAddressCard({
@@ -264,6 +301,47 @@ export function StatusBadge({ status }) {
   );
 }
 
+export function ProductTraitBadge({ product }) {
+  const type = String(product?.vegType || '').toLowerCase();
+
+  if (type.includes('non')) {
+    return (
+      <View style={[styles.traitBadge, styles.nonVegTrait]}>
+        <Ionicons name="restaurant-outline" size={12} color="#b91c1c" />
+        <Text style={[styles.traitText, { color: '#b91c1c' }]}>Non-veg</Text>
+      </View>
+    );
+  }
+
+  if (type.includes('egg')) {
+    return (
+      <View style={[styles.traitBadge, styles.eggTrait]}>
+        <MaterialCommunityIcons name="egg-outline" size={13} color="#b45309" />
+        <Text style={[styles.traitText, { color: '#b45309' }]}>Egg</Text>
+      </View>
+    );
+  }
+
+  if (type.includes('veg')) {
+    return (
+      <View style={[styles.traitBadge, styles.vegTrait]}>
+        <Ionicons name="leaf-outline" size={12} color="#15803d" />
+        <Text style={[styles.traitText, { color: '#15803d' }]}>Veg</Text>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+export function AvailabilityIcon({ unavailable }) {
+  return (
+    <View style={[styles.availabilityDot, unavailable ? styles.availabilityOff : styles.availabilityOn]}>
+      <Ionicons name={unavailable ? 'close' : 'checkmark'} size={13} color={unavailable ? colors.error : colors.success} />
+    </View>
+  );
+}
+
 export function CategoryCard({ title, subtitle, active, onPress }) {
   const iconName = title.includes('Restaurant') ? 'food-fork-drink' : title.includes('Grocery') ? 'basket-outline' : title.includes('Dairy') ? 'bottle-soda-outline' : 'apps';
 
@@ -318,6 +396,7 @@ export function ProductCard({ product, onPress, onAdd }) {
         </View>
         <Text style={styles.productTitle} numberOfLines={2}>{product.name}</Text>
         <Text style={styles.productMeta} numberOfLines={1}>{product.brand || product.foodCategory || product.groceryCategory || product.shop?.name}</Text>
+        <ProductTraitBadge product={product} />
         <Text style={styles.price}>Rs.{product.price}</Text>
       </Pressable>
       {onAdd ? (
@@ -343,12 +422,15 @@ export function ProductListCard({ product, onPress, onAdd, disabled, quantity = 
           </View>
           <View style={styles.flex}>
             <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
-            {meta ? <Text style={styles.muted} numberOfLines={1}>{meta}</Text> : null}
+            <View style={styles.productMetaRow}>
+              {meta ? <Text style={[styles.muted, { flexShrink: 1 }]} numberOfLines={1}>{meta}</Text> : null}
+              <ProductTraitBadge product={product} />
+            </View>
             <Text style={styles.price}>Rs.{product.price}</Text>
           </View>
         </Pressable>
         <View style={styles.productListActions}>
-          <StatusBadge status={product.status === 'inactive' ? 'Unavailable' : 'Available'} />
+          <AvailabilityIcon unavailable={product.status === 'inactive'} />
           {quantity > 0 ? (
             <QuantityStepper value={quantity} onMinus={onMinus} onPlus={onPlus} />
           ) : (
@@ -363,12 +445,18 @@ export function ProductListCard({ product, onPress, onAdd, disabled, quantity = 
 }
 
 export function CartItemCard({ item, onMinus, onPlus, onRemove }) {
+  const image = item.images?.[0]?.url;
+
   return (
     <Card style={{ gap: 12 }}>
-      <View style={styles.between}>
+      <View style={styles.cartItemTop}>
+        <View style={styles.cartItemThumb}>
+          {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={24} color={colors.primary} />}
+        </View>
         <View style={styles.flex}>
-          <Text style={styles.title}>{item.name}</Text>
+          <Text style={styles.title} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.muted}>Rs.{item.price} each</Text>
+          <ProductTraitBadge product={item} />
         </View>
         <Text style={styles.price}>Rs.{Number(item.price) * item.quantity}</Text>
       </View>
@@ -491,8 +579,8 @@ export const styles = StyleSheet.create({
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   flex: { flex: 1 },
   title: { fontSize: 16, lineHeight: 20, fontWeight: '800', color: colors.ink, flexShrink: 1 },
-  heading: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: colors.ink },
-  subheading: { fontSize: 16, fontWeight: '800', color: colors.ink },
+  heading: { fontSize: 20, lineHeight: 26, fontWeight: '700', color: colors.ink },
+  subheading: { fontSize: 16, fontWeight: '700', color: colors.ink },
   muted: { color: colors.muted, fontWeight: '500', lineHeight: 19, fontSize: 13 },
   small: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 3 },
   link: { color: colors.primary, fontWeight: '800' },
@@ -695,8 +783,55 @@ export const styles = StyleSheet.create({
   empty: { alignItems: 'center', gap: 8 },
   emptyIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' },
   emptyIconText: { color: colors.primary, fontWeight: '900' },
-  emptyTitle: { fontSize: 18, fontWeight: '900', color: colors.ink },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
   productListActions: { alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', gap: 8, maxWidth: 112 },
+  productMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 },
+  traitBadge: { minHeight: 22, borderRadius: 999, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
+  traitText: { fontSize: 10, fontWeight: '700' },
+  vegTrait: { backgroundColor: '#dcfce7' },
+  nonVegTrait: { backgroundColor: '#fee2e2' },
+  eggTrait: { backgroundColor: '#fef3c7' },
+  availabilityDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  availabilityOn: { backgroundColor: '#dcfce7', borderColor: '#bbf7d0' },
+  availabilityOff: { backgroundColor: '#fee2e2', borderColor: '#fecaca' },
+  cartItemTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cartItemThumb: { width: 62, height: 62, borderRadius: 14, overflow: 'hidden', backgroundColor: '#f5f3ff', alignItems: 'center', justifyContent: 'center' },
+  cartPreviewBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 82,
+    minHeight: 64,
+    borderRadius: 22,
+    backgroundColor: '#111827',
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#111827',
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10
+  },
+  cartPreviewImages: { width: 72, flexDirection: 'row', alignItems: 'center' },
+  cartPreviewThumb: { width: 34, height: 34, borderRadius: 11, backgroundColor: '#fff', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
+  cartPreviewTitle: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  cartPreviewSubtitle: { color: '#d1d5db', fontWeight: '600', fontSize: 12, marginTop: 2 },
+  cartPreviewCta: { minHeight: 42, borderRadius: 16, backgroundColor: colors.primary, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cartPreviewCtaText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  checkoutFooter: { gap: 10, padding: 12, borderRadius: 22 },
+  orderFooter: {
+    gap: 8,
+    padding: 12,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    shadowOpacity: 0.18,
+    shadowRadius: 18
+  },
+  footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  footerSummaryLabel: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+  footerSummaryValue: { color: colors.ink, fontSize: 18, fontWeight: '800' },
   addSmallButton: { minHeight: 34, borderRadius: 11, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   addSmallText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 999, overflow: 'hidden', backgroundColor: '#fff' },

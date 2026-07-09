@@ -1,5 +1,5 @@
 import { Alert, ScrollView, Text, View } from 'react-native';
-import { Button, Card, CartItemCard, EmptyState, FixedFooter, PriceRow, styles } from '../components/ui';
+import { Button, Card, CartItemCard, EmptyState, PriceRow, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
 
 export default function CartScreen({ navigation }) {
@@ -19,7 +19,7 @@ export default function CartScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: items.length > 0 ? 150 : 96 }]}>
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 116 }]}>
         <Text style={styles.heading}>Cart</Text>
         {items.length === 0 ? <EmptyState title="Your cart is empty" message="Add products from a shop to place an order." /> : null}
         {items.map((item) => (
@@ -45,12 +45,21 @@ export default function CartScreen({ navigation }) {
             ) : null}
           </Card>
         ) : null}
+        {items.length > 0 ? (
+          <Card style={{ gap: 12 }}>
+            <View style={styles.footerSummaryRow}>
+              <View>
+                <Text style={styles.footerSummaryLabel}>To pay</Text>
+                <Text style={styles.footerSummaryValue}>Rs.{toPay}</Text>
+              </View>
+              <Text style={belowMinimum ? { color: '#b45309', fontWeight: '700', maxWidth: 150, textAlign: 'right' } : styles.muted} numberOfLines={2}>
+                {belowMinimum ? `Add Rs.${minimumOrder - subtotal} more` : `${items.length} cart ${items.length === 1 ? 'item' : 'items'}`}
+              </Text>
+            </View>
+            <Button title="Proceed to Checkout" disabled={belowMinimum} onPress={() => navigation.navigate('Checkout')} />
+          </Card>
+        ) : null}
       </ScrollView>
-      {items.length > 0 ? (
-        <FixedFooter>
-          <Button title="Proceed to checkout" disabled={belowMinimum} onPress={() => navigation.navigate('Checkout')} />
-        </FixedFooter>
-      ) : null}
     </View>
   );
 }

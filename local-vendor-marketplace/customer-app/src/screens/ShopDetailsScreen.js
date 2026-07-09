@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
-import { Button, Card, EmptyState, FixedFooter, Loader, ProductListCard, SectionHeader, StatusBadge, styles } from '../components/ui';
+import { Card, CartPreviewBar, EmptyState, Loader, ProductListCard, SectionHeader, StatusBadge, styles } from '../components/ui';
 import { colors } from '../constants';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
@@ -155,9 +155,12 @@ export default function ShopDetailsScreen({ route, navigation }) {
         }}
       />
       {items.length > 0 ? (
-        <FixedFooter>
-          <Button title={`${cartQuantity} items | Rs.${subtotal} - View cart`} onPress={() => navigation.navigate('Cart', { screen: 'CartMain' })} />
-        </FixedFooter>
+        <CartPreviewBar
+          items={items}
+          quantity={cartQuantity}
+          subtotal={subtotal}
+          onPress={() => navigation.navigate('Cart', { screen: 'CartMain' })}
+        />
       ) : null}
     </SafeAreaView>
   );
