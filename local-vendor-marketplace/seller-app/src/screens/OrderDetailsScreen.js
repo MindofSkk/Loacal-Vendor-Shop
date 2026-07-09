@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
-import { Button, Card, OptionRow, StatusBadge, styles } from '../components/ui';
+import { Button, Card, InfoRow, OptionRow, StatusBadge, styles } from '../components/ui';
 import { colors, orderStatuses } from '../constants';
+import { useToast } from '../context/ToastContext';
 
 const buildWhatsAppMessage = (order) => {
   const address = order.deliveryAddress || {};
@@ -33,22 +34,28 @@ Please deliver as soon as possible.`;
 };
 
 export default function OrderDetailsScreen({ route, navigation }) {
-  const { order } = route.params;
+  const { showToast } = useToast();
+  const [order, setOrder] = useState(route.params.order);
   const [selectedPhone, setSelectedPhone] = useState('');
+  const [statusLoading, setStatusLoading] = useState(false);
 
   const updateStatus = async (status) => {
+    if (status === order.status) return;
+    setStatusLoading(true);
     try {
       await orderApi.updateSellerStatus(order._id, { status, note: `Seller marked ${status}` });
-      Alert.alert('Updated', `Order marked ${status}.`);
-      navigation.goBack();
+      setOrder({ ...order, status });
+      showToast({ type: 'success', message: `Order marked ${status}.` });
     } catch (err) {
-      Alert.alert('Update failed', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
+    } finally {
+      setStatusLoading(false);
     }
   };
 
   const openMaps = () => {
     if (!order.deliveryAddress?.mapUrl) {
-      Alert.alert('No map location', 'Customer did not share current location.');
+      showToast({ type: 'warning', message: 'Customer did not share map location.' });
       return;
     }
     Linking.openURL(order.deliveryAddress.mapUrl);
@@ -70,6 +77,11 @@ export default function OrderDetailsScreen({ route, navigation }) {
         <Text style={styles.title}>{order.customer?.name}</Text>
         <Text style={styles.muted}>Phone: {order.deliveryAddress?.phone || order.customer?.phone}</Text>
         <Text style={styles.price}>Rs.{order.subtotal}</Text>
+      </Card>
+      <Card style={{ gap: 10 }}>
+        <Text style={styles.subheading}>Customer Info</Text>
+        <InfoRow label="Name" value={order.customer?.name || 'Customer'} />
+        <InfoRow label="Phone" value={order.deliveryAddress?.phone || order.customer?.phone || 'N/A'} />
       </Card>
       <Card style={{ gap: 10 }}>
         <Text style={styles.subheading}>Delivery address</Text>
@@ -109,6 +121,7 @@ export default function OrderDetailsScreen({ route, navigation }) {
       <Card style={{ gap: 10 }}>
         <Text style={styles.subheading}>Update status</Text>
         <OptionRow options={orderStatuses} value={order.status} onChange={updateStatus} />
+        {statusLoading ? <Text style={styles.muted}>Updating order status...</Text> : null}
       </Card>
       <Card style={{ gap: 10 }}>
         <Text style={styles.subheading}>Delivery boy</Text>

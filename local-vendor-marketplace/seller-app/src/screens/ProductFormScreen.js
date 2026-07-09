@@ -1,10 +1,11 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
 import { Button, Card, Input, OptionRow, styles } from '../components/ui';
 import { foodCategories, groceryCategories } from '../constants';
+import { useToast } from '../context/ToastContext';
 
 const emptyForm = {
   name: '',
@@ -22,9 +23,12 @@ const emptyForm = {
 };
 
 export default function ProductFormScreen({ route, navigation }) {
+  const { showToast } = useToast();
   const { shop, product } = route.params || {};
   const businessType = shop?.businessType || product?.businessType || 'Restaurant';
   const [image, setImage] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     ...emptyForm,
     ...product,
@@ -34,6 +38,11 @@ export default function ProductFormScreen({ route, navigation }) {
   });
 
   const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      showToast({ type: 'warning', message: 'Photo permission is required to upload product images.' });
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8
@@ -55,6 +64,14 @@ export default function ProductFormScreen({ route, navigation }) {
   };
 
   const save = async () => {
+    const nextErrors = {};
+    if (!form.name.trim()) nextErrors.name = 'Product name is required.';
+    if (!form.price || Number(form.price) <= 0) nextErrors.price = 'Enter a valid price.';
+    if (businessType === 'Grocery / Kirana Store' && (!form.stock || Number(form.stock) < 0)) nextErrors.stock = 'Enter valid stock quantity.';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+
+    setSaving(true);
     try {
       const formData = new FormData();
       Object.entries(form).forEach(([key, value]) => {
@@ -62,7 +79,7 @@ export default function ProductFormScreen({ route, navigation }) {
           return;
         }
         if (value !== '' && value != null && key !== '_id' && key !== 'images' && key !== 'shop') {
-          formData.append(key, String(value));
+          formData.append(key, typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value));
         }
       });
       appendImage(formData);
@@ -72,10 +89,12 @@ export default function ProductFormScreen({ route, navigation }) {
       } else {
         await productApi.create(formData);
       }
-      Alert.alert('Saved', product?._id ? 'Product updated.' : 'Product added.');
+      showToast({ type: 'success', message: product?._id ? 'Product updated.' : 'Product added.' });
       navigation.goBack();
     } catch (err) {
-      Alert.alert('Save failed', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -86,9 +105,9 @@ export default function ProductFormScreen({ route, navigation }) {
         <Text style={styles.muted}>{businessType}</Text>
       </Card>
       <Card style={{ gap: 12 }}>
-        <Input label={businessType === 'Restaurant' ? 'Item name' : 'Product name'} value={form.name} onChangeText={(name) => setForm({ ...form, name })} />
+        <Input label={businessType === 'Restaurant' ? 'Item name' : 'Product name'} value={form.name} error={errors.name} onChangeText={(name) => setForm({ ...form, name })} />
         <Input label="Description" multiline value={form.description} onChangeText={(description) => setForm({ ...form, description })} />
-        <Input label="Price" keyboardType="numeric" value={form.price} onChangeText={(price) => setForm({ ...form, price })} />
+        <Input label="Price" keyboardType="numeric" value={form.price} error={errors.price} onChangeText={(price) => setForm({ ...form, price })} />
 
         {businessType === 'Restaurant' ? (
           <>
@@ -103,7 +122,7 @@ export default function ProductFormScreen({ route, navigation }) {
           <>
             <Input label="Brand" value={form.brand} onChangeText={(brand) => setForm({ ...form, brand })} />
             <Input label="Quantity / Pack size" value={form.packSize} onChangeText={(packSize) => setForm({ ...form, packSize })} />
-            <Input label="Stock quantity" keyboardType="number-pad" value={form.stock} onChangeText={(stock) => setForm({ ...form, stock })} />
+            <Input label="Stock quantity" keyboardType="number-pad" value={form.stock} error={errors.stock} onChangeText={(stock) => setForm({ ...form, stock })} />
             <Text style={styles.label}>Category</Text>
             <OptionRow options={groceryCategories} value={form.groceryCategory} onChange={(groceryCategory) => setForm({ ...form, groceryCategory })} />
           </>
@@ -129,7 +148,7 @@ export default function ProductFormScreen({ route, navigation }) {
         {image ? <Image source={{ uri: image.uri }} style={{ height: 180, borderRadius: 16 }} /> : null}
         <View style={styles.row}>
           <Button title="Pick image" variant="secondary" onPress={pickImage} style={styles.flex} />
-          <Button title="Save" onPress={save} style={styles.flex} />
+          <Button title="Save" loading={saving} onPress={save} style={styles.flex} />
         </View>
       </Card>
     </ScrollView>

@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getApiError } from '../api/client';
 import { shopApi } from '../api/services';
 import { Button, Card, Input, Loader, OptionRow, styles } from '../components/ui';
 import { closureReasons, weekDays } from '../constants';
+import { useToast } from '../context/ToastContext';
 
 const defaultSettings = {
   workingHours: weekDays.map((day) => ({ day, openTime: '09:00', closeTime: '21:00', closed: false })),
@@ -13,8 +14,11 @@ const defaultSettings = {
 };
 
 export default function BusinessSettingsScreen({ navigation }) {
+  const { showToast } = useToast();
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -27,7 +31,7 @@ export default function BusinessSettingsScreen({ navigation }) {
       });
     } catch (err) {
       if (err.response?.status !== 404) {
-        Alert.alert('Unable to load settings', getApiError(err));
+        showToast({ type: 'error', message: getApiError(err) });
       }
     } finally {
       setLoading(false);
@@ -47,11 +51,22 @@ export default function BusinessSettingsScreen({ navigation }) {
   };
 
   const save = async () => {
+    const nextErrors = {};
+    if (Number(settings.deliverySettings.radiusKm) <= 0) nextErrors.radiusKm = 'Radius must be greater than 0.';
+    if (Number(settings.deliverySettings.minimumOrder) < 0) nextErrors.minimumOrder = 'Minimum order cannot be negative.';
+    if (Number(settings.deliverySettings.deliveryCharge) < 0) nextErrors.deliveryCharge = 'Delivery charge cannot be negative.';
+    if (!settings.deliverySettings.estimatedDeliveryTime.trim()) nextErrors.estimatedDeliveryTime = 'ETA is required.';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+
+    setSaving(true);
     try {
       await shopApi.updateSettings(settings);
-      Alert.alert('Saved', 'Business settings saved.');
+      showToast({ type: 'success', message: 'Business settings saved.' });
     } catch (err) {
-      Alert.alert('Save failed', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -69,11 +84,11 @@ export default function BusinessSettingsScreen({ navigation }) {
       </Card>
       <Card style={{ gap: 12 }}>
         <Text style={styles.subheading}>Delivery settings</Text>
-        <Input label="Delivery Radius KM" keyboardType="numeric" value={String(settings.deliverySettings.radiusKm)} onChangeText={(radiusKm) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, radiusKm } })} />
-        <Input label="Minimum Order" keyboardType="numeric" value={String(settings.deliverySettings.minimumOrder)} onChangeText={(minimumOrder) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, minimumOrder } })} />
-        <Input label="Delivery Charge" keyboardType="numeric" value={String(settings.deliverySettings.deliveryCharge)} onChangeText={(deliveryCharge) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, deliveryCharge } })} />
+        <Input label="Delivery Radius KM" helper="Example: 3" error={errors.radiusKm} keyboardType="numeric" value={String(settings.deliverySettings.radiusKm)} onChangeText={(radiusKm) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, radiusKm } })} />
+        <Input label="Minimum Order" error={errors.minimumOrder} keyboardType="numeric" value={String(settings.deliverySettings.minimumOrder)} onChangeText={(minimumOrder) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, minimumOrder } })} />
+        <Input label="Delivery Charge" error={errors.deliveryCharge} keyboardType="numeric" value={String(settings.deliverySettings.deliveryCharge)} onChangeText={(deliveryCharge) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, deliveryCharge } })} />
         <Input label="Free Delivery Above" keyboardType="numeric" value={String(settings.deliverySettings.freeDeliveryAbove)} onChangeText={(freeDeliveryAbove) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, freeDeliveryAbove } })} />
-        <Input label="Estimated Delivery Time" value={settings.deliverySettings.estimatedDeliveryTime} onChangeText={(estimatedDeliveryTime) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, estimatedDeliveryTime } })} />
+        <Input label="Estimated Delivery Time" helper="Example: 20-30 min" error={errors.estimatedDeliveryTime} value={settings.deliverySettings.estimatedDeliveryTime} onChangeText={(estimatedDeliveryTime) => setSettings({ ...settings, deliverySettings: { ...settings.deliverySettings, estimatedDeliveryTime } })} />
       </Card>
       <Card style={{ gap: 12 }}>
         <Text style={styles.subheading}>Temporary closure</Text>
@@ -89,12 +104,12 @@ export default function BusinessSettingsScreen({ navigation }) {
               <Text style={styles.title}>{entry.day}</Text>
               <OptionRow options={['Open', 'Closed']} value={entry.closed ? 'Closed' : 'Open'} onChange={(value) => updateHours(index, 'closed', value === 'Closed')} />
             </View>
-            <Input label="Open Time HH:mm" value={entry.openTime} onChangeText={(value) => updateHours(index, 'openTime', value)} />
-            <Input label="Close Time HH:mm" value={entry.closeTime} onChangeText={(value) => updateHours(index, 'closeTime', value)} />
+            <Input label="Open Time" helper="Use 24-hour format, e.g. 09:00" value={entry.openTime} onChangeText={(value) => updateHours(index, 'openTime', value)} />
+            <Input label="Close Time" helper="Use 24-hour format, e.g. 21:00" value={entry.closeTime} onChangeText={(value) => updateHours(index, 'closeTime', value)} />
           </Card>
         ))}
       </Card>
-      <Button title="Save business settings" onPress={save} />
+      <Button title="Save business settings" loading={saving} onPress={save} />
     </ScrollView>
   );
 }

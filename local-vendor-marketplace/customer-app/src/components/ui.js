@@ -12,8 +12,8 @@ export function ScreenWrapper({ children, style }) {
   return <SafeAreaView style={[styles.screen, style]}>{children}</SafeAreaView>;
 }
 
-export function Button({ title, onPress, variant = 'primary', disabled, style }) {
-  const isDisabled = Boolean(disabled);
+export function Button({ title, onPress, variant = 'primary', disabled, loading, style }) {
+  const isDisabled = Boolean(disabled || loading);
   const label = title == null ? '' : String(title);
 
   return (
@@ -24,26 +24,35 @@ export function Button({ title, onPress, variant = 'primary', disabled, style })
         styles.button,
         variant === 'secondary' ? styles.secondaryButton : null,
         variant === 'danger' ? styles.dangerButton : null,
+        variant === 'outlineDanger' ? styles.outlineDangerButton : null,
         variant === 'ghost' ? styles.ghostButton : null,
         isDisabled ? styles.disabled : null,
         pressed && !isDisabled ? styles.pressed : null,
         style
       ]}
     >
-      <Text style={[styles.buttonText, variant === 'secondary' || variant === 'ghost' ? styles.secondaryButtonText : null]} numberOfLines={1}>
+      {loading ? <ActivityIndicator size="small" color={variant === 'secondary' || variant === 'outlineDanger' || variant === 'ghost' ? colors.primary : '#fff'} /> : null}
+      <Text
+        style={[
+          styles.buttonText,
+          variant === 'secondary' || variant === 'ghost' ? styles.secondaryButtonText : null,
+          variant === 'outlineDanger' ? styles.outlineDangerText : null
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </Pressable>
   );
 }
 
-export function Input({ label, multiline, style, secureTextEntry, editable, autoFocus, leftText, ...props }) {
+export function Input({ label, multiline, style, secureTextEntry, editable, autoFocus, leftText, rightElement, error, helper, ...props }) {
   const isMultiline = Boolean(multiline);
 
   return (
     <View style={style}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={[styles.inputShell, isMultiline ? styles.textAreaShell : null]}>
+      <View style={[styles.inputShell, isMultiline ? styles.textAreaShell : null, error ? styles.inputError : null]}>
         {leftText ? <Text style={styles.inputIcon}>{leftText}</Text> : null}
         <TextInput
           {...props}
@@ -54,7 +63,9 @@ export function Input({ label, multiline, style, secureTextEntry, editable, auto
           autoFocus={Boolean(autoFocus)}
           style={[styles.input, isMultiline ? styles.textArea : null, props.style]}
         />
+        {rightElement}
       </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : helper ? <Text style={styles.helperText}>{helper}</Text> : null}
     </View>
   );
 }
@@ -100,7 +111,7 @@ export function CompactLocationHeader({ greeting = 'Hello!', addressText, loadin
   );
 }
 
-export function SearchBar({ value, onChangeText, placeholder = 'Search for shops or products...' }) {
+export function SearchBar({ value, onChangeText, onClear, placeholder = 'Search for shops or products...' }) {
   return (
     <View style={styles.searchShell}>
       <Ionicons name="search-outline" size={18} color={colors.muted} />
@@ -111,9 +122,19 @@ export function SearchBar({ value, onChangeText, placeholder = 'Search for shops
         placeholderTextColor="#9CA3AF"
         style={styles.searchInput}
       />
-      <Ionicons name="mic-outline" size={18} color={colors.primary} />
+      {value ? (
+        <Pressable onPress={onClear} hitSlop={10} style={styles.searchClearButton}>
+          <Ionicons name="close-circle" size={19} color={colors.muted} />
+        </Pressable>
+      ) : (
+        <Ionicons name="mic-outline" size={18} color={colors.primary} />
+      )}
     </View>
   );
+}
+
+export function FixedFooter({ children }) {
+  return <View style={styles.fixedFooter}>{children}</View>;
 }
 
 export function DeliveryAddressCard({
@@ -306,6 +327,30 @@ export function ProductCard({ product, onPress, onAdd }) {
   );
 }
 
+export function ProductListCard({ product, onPress, onAdd, disabled }) {
+  const image = product.images?.[0]?.url;
+  const unavailable = disabled || product.status === 'inactive';
+
+  return (
+    <Card style={styles.productListCard}>
+      <Pressable onPress={onPress} style={styles.row}>
+        <View style={styles.productListThumb}>
+          {image ? <Image source={{ uri: image }} style={styles.image} /> : <Text style={styles.thumbText}>{product.name?.slice(0, 1) || 'P'}</Text>}
+        </View>
+        <View style={styles.flex}>
+          <View style={styles.between}>
+            <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
+            <StatusBadge status={product.status === 'inactive' ? 'Unavailable' : 'Available'} />
+          </View>
+          <Text style={styles.muted} numberOfLines={1}>{product.brand || product.foodCategory || product.groceryCategory || product.dairyBakeryType || product.shop?.name}</Text>
+          <Text style={styles.price}>Rs.{product.price}</Text>
+        </View>
+      </Pressable>
+      {onAdd ? <Button title={unavailable ? 'Unavailable' : 'Add to cart'} onPress={onAdd} disabled={unavailable} style={styles.compactButton} /> : null}
+    </Card>
+  );
+}
+
 export function CartItemCard({ item, onMinus, onPlus, onRemove }) {
   return (
     <Card style={{ gap: 12 }}>
@@ -321,6 +366,23 @@ export function CartItemCard({ item, onMinus, onPlus, onRemove }) {
         <Button title="Remove" variant="danger" onPress={onRemove} style={{ minHeight: 42 }} />
       </View>
     </Card>
+  );
+}
+
+export function MenuCard({ icon, title, subtitle, onPress, danger }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [pressed ? styles.pressed : null]}>
+      <Card style={styles.menuCard}>
+        <View style={[styles.iconBubble, danger ? styles.dangerBubble : null]}>
+          <Ionicons name={icon} size={20} color={danger ? colors.error : colors.primary} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={[styles.title, danger ? { color: colors.error } : null]}>{title}</Text>
+          {subtitle ? <Text style={styles.muted} numberOfLines={1}>{subtitle}</Text> : null}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      </Card>
+    </Pressable>
   );
 }
 
@@ -376,18 +438,18 @@ export const AppCard = Card;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, paddingBottom: 28, gap: 14 },
+  content: { padding: 16, paddingBottom: 96, gap: 14 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 12,
+    padding: 14,
     shadowColor: '#0f172a',
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3
   },
   hero: {
     backgroundColor: '#f1ecff',
@@ -423,7 +485,7 @@ export const styles = StyleSheet.create({
   link: { color: colors.primary, fontWeight: '900' },
   label: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginBottom: 6 },
   inputShell: {
-    minHeight: 52,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -432,28 +494,36 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
+  inputError: { borderColor: colors.error, backgroundColor: '#fff7f7' },
+  fieldError: { color: colors.error, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  helperText: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 5 },
   textAreaShell: { minHeight: 100, alignItems: 'flex-start', paddingTop: 12 },
   inputIcon: { color: colors.primary, fontWeight: '900', marginRight: 8 },
   input: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700', paddingVertical: 10 },
   textArea: { minHeight: 78, textAlignVertical: 'top' },
   button: {
-    minHeight: 52,
+    minHeight: 48,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    gap: 8
   },
   compactButton: { minHeight: 44, alignSelf: 'stretch' },
   secondaryButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   dangerButton: { backgroundColor: colors.red },
+  outlineDangerButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.red },
   ghostButton: { backgroundColor: 'transparent' },
   buttonText: { color: '#fff', fontWeight: '900', fontSize: 15 },
   secondaryButtonText: { color: colors.ink },
+  outlineDangerText: { color: colors.red },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.78 },
   shopCard: { gap: 8, padding: 10 },
   productCard: { width: 126, gap: 8, padding: 10, position: 'relative' },
+  productListCard: { gap: 12 },
   shopThumb: {
     width: 72,
     height: 58,
@@ -467,6 +537,15 @@ export const styles = StyleSheet.create({
     width: '100%',
     height: 72,
     borderRadius: 12,
+    backgroundColor: '#f5f3ff',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  productListThumb: {
+    width: 74,
+    height: 74,
+    borderRadius: 14,
     backgroundColor: '#f5f3ff',
     overflow: 'hidden',
     alignItems: 'center',
@@ -578,6 +657,25 @@ export const styles = StyleSheet.create({
     gap: 8
   },
   searchInput: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '700' },
+  searchClearButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  fixedFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 16,
+    paddingBottom: 18,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8
+  },
+  menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  dangerBubble: { backgroundColor: '#FEF2F2' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   empty: { alignItems: 'center', gap: 8 },
   emptyIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' },

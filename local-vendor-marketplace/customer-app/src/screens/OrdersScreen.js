@@ -1,29 +1,33 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
 import { EmptyState, Loader, OrderCard, SectionHeader, styles } from '../components/ui';
 import { colors } from '../constants';
+import { useToast } from '../context/ToastContext';
 
 const tabs = ['All', 'Ongoing', 'Delivered', 'Cancelled'];
 
 export default function OrdersScreen({ navigation }) {
+  const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     try {
       const { data } = await orderApi.myOrders();
       setOrders(data);
     } catch (err) {
-      Alert.alert('Unable to load orders', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
     } finally {
+      setRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,8 +44,8 @@ export default function OrdersScreen({ navigation }) {
 
   if (loading) return <Loader />;
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+  const header = (
+    <View style={{ gap: 14 }}>
       <SectionHeader title="My Orders" />
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {tabs.map((tab) => (
@@ -63,10 +67,19 @@ export default function OrdersScreen({ navigation }) {
           </Pressable>
         ))}
       </View>
-      {filteredOrders.length === 0 ? <EmptyState title="No orders" message="Orders for this status will show here." /> : null}
-      {filteredOrders.map((order) => (
-        <OrderCard key={order._id} order={order} onPress={() => navigation.navigate('OrderDetails', { order })} />
-      ))}
-    </ScrollView>
+    </View>
+  );
+
+  return (
+    <FlatList
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      data={filteredOrders}
+      keyExtractor={(order) => order._id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+      ListHeaderComponent={header}
+      ListEmptyComponent={<EmptyState title="No orders" message="Orders for this status will show here." />}
+      renderItem={({ item: order }) => <OrderCard order={order} onPress={() => navigation.navigate('OrderDetails', { order })} />}
+    />
   );
 }

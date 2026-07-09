@@ -1,16 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
-import { EmptyState, Loader, OrderRow, SectionHeader, styles } from '../components/ui';
+import { EmptyState, Loader, OrderRow, SearchBar, SectionHeader, styles } from '../components/ui';
 import { colors } from '../constants';
+import { useToast } from '../context/ToastContext';
 
-const tabs = ['New', 'Accepted', 'Preparing', 'Completed'];
+const tabs = ['New', 'Accepted', 'Packed', 'Delivered', 'Cancelled', 'Rejected'];
 
 export default function OrdersScreen({ navigation }) {
+  const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('New');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -19,7 +22,7 @@ export default function OrdersScreen({ navigation }) {
       const { data } = await orderApi.sellerOrders();
       setOrders(data);
     } catch (err) {
-      Alert.alert('Unable to load orders', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
     } finally {
       setLoading(false);
     }
@@ -42,24 +45,29 @@ export default function OrdersScreen({ navigation }) {
   );
 
   const filteredOrders = useMemo(() => {
-    if (activeTab === 'New') return sorted.filter((order) => order.status === 'Pending');
-    if (activeTab === 'Accepted') return sorted.filter((order) => order.status === 'Accepted');
-    if (activeTab === 'Preparing') return sorted.filter((order) => ['Packed', 'Out for Delivery'].includes(order.status));
-    return sorted.filter((order) => order.status === 'Delivered');
-  }, [activeTab, sorted]);
+    const byTab = sorted.filter((order) => {
+      if (activeTab === 'New') return order.status === 'Pending';
+      if (activeTab === 'Packed') return ['Packed', 'Out for Delivery'].includes(order.status);
+      return order.status === activeTab;
+    });
+    const query = search.trim().toLowerCase();
+    if (!query) return byTab;
+    return byTab.filter((order) => `${order._id || ''} ${order.customer?.name || ''} ${order.deliveryAddress?.phone || ''}`.toLowerCase().includes(query));
+  }, [activeTab, search, sorted]);
 
   if (loading) return <Loader />;
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+  const header = (
+    <View style={{ gap: 14 }}>
       <SectionHeader title="Orders" />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search order/customer..." />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {tabs.map((tab) => (
           <Pressable
             key={tab}
             onPress={() => setActiveTab(tab)}
             style={{
-              flex: 1,
+              minWidth: 92,
               minHeight: 42,
               borderRadius: 999,
               alignItems: 'center',
@@ -73,10 +81,19 @@ export default function OrdersScreen({ navigation }) {
           </Pressable>
         ))}
       </View>
-      {filteredOrders.length === 0 ? <EmptyState title="No orders" message="Orders for this status will appear here." /> : null}
-      {filteredOrders.map((order) => (
-        <OrderRow key={order._id} order={order} onPress={() => navigation.navigate('OrderDetails', { order })} />
-      ))}
-    </ScrollView>
+    </View>
+  );
+
+  return (
+    <FlatList
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+      data={filteredOrders}
+      keyExtractor={(order) => order._id}
+      ListHeaderComponent={header}
+      ListEmptyComponent={<EmptyState title="No orders" message="Orders for this status will appear here." />}
+      renderItem={({ item: order }) => <OrderRow order={order} onPress={() => navigation.navigate('OrderDetails', { order })} />}
+    />
   );
 }

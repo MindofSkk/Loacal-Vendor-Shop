@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
 import { CategoryCard, CompactLocationHeader, EmptyState, Loader, ProductCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
@@ -11,42 +11,66 @@ import { useToast } from '../context/ToastContext';
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
   const { showToast } = useToast();
-  const [shops, setShops] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [allShops, setAllShops] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     try {
       const locationParams = location ? { latitude: location.latitude, longitude: location.longitude } : {};
       const [shopRes, productRes] = await Promise.all([
         shopApi.list({ category: '', ...locationParams }),
         productApi.list({})
       ]);
-      const query = search.trim().toLowerCase();
-      const nextShops = shopRes.data
-        .filter((shop) => (selectedCategory ? shop.businessType === selectedCategory : true))
-        .filter((shop) => (query ? `${shop.name} ${shop.businessType} ${shop.location?.area || ''}`.toLowerCase().includes(query) : true));
-      const nextProducts = productRes.data
-        .filter((product) => (selectedCategory ? product.businessType === selectedCategory : true))
-        .filter((product) => (query ? `${product.name} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''}`.toLowerCase().includes(query) : true));
-      setShops(nextShops);
-      setProducts(nextProducts);
+      setAllShops(shopRes.data);
+      setAllProducts(productRes.data);
     } catch (err) {
-      Alert.alert('Unable to load', getApiError(err));
+      showToast({ type: 'error', message: getApiError(err) });
     } finally {
-      setLoading(false);
+      setRefreshing(false);
+      setInitialLoading(false);
     }
-  }, [location, selectedCategory, search]);
+  }, [location, selectedCategory]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim().toLowerCase());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const filteredShops = useMemo(() => {
+    return allShops
+      .filter((shop) => (selectedCategory ? shop.businessType === selectedCategory : true))
+      .filter((shop) => {
+        if (!debouncedSearch) return true;
+        return `${shop.name || ''} ${shop.businessType || ''} ${shop.location?.area || ''} ${shop.location?.city || ''}`.toLowerCase().includes(debouncedSearch);
+      });
+  }, [allShops, debouncedSearch, selectedCategory]);
+
+  const filteredProducts = useMemo(() => {
+    return allProducts
+      .filter((product) => (selectedCategory ? product.businessType === selectedCategory : true))
+      .filter((product) => {
+        if (!debouncedSearch) return true;
+        return `${product.name || ''} ${product.businessType || ''} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''} ${product.dairyBakeryType || ''}`
+          .toLowerCase()
+          .includes(debouncedSearch);
+      });
+  }, [allProducts, debouncedSearch, selectedCategory]);
 
   const captureLocation = async () => {
     setLocationLoading(true);
@@ -56,16 +80,16 @@ export default function HomeScreen({ navigation }) {
       if (status !== 'granted') {
         const message = 'Unable to fetch location. Please enter manually.';
         setLocationError(message);
-        Alert.alert('Location denied', message);
+        showToast({ type: 'warning', message });
         return;
       }
       const current = await Location.getCurrentPositionAsync({});
       setLocation({ latitude: current.coords.latitude, longitude: current.coords.longitude });
-      Alert.alert('Location added', 'Location added');
+      showToast({ type: 'success', message: 'Location added' });
     } catch (_err) {
       const message = 'Unable to fetch location. Please enter manually.';
       setLocationError(message);
-      Alert.alert('Location error', message);
+      showToast({ type: 'warning', message });
     } finally {
       setLocationLoading(false);
     }
@@ -85,10 +109,11 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  if (loading) return <Loader />;
+  const hasSearch = Boolean(debouncedSearch);
+  const noSearchResults = hasSearch && filteredShops.length === 0 && filteredProducts.length === 0;
 
-  return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+  const renderHeader = () => (
+    <View style={{ gap: 14 }}>
       <CompactLocationHeader
         greeting="Hello, SkK!"
         addressText={location ? 'Current location selected' : 'nagri, Ranchi, 835303'}
@@ -97,7 +122,7 @@ export default function HomeScreen({ navigation }) {
       />
       {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
 
-      <SearchBar value={search} onChangeText={setSearch} />
+      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} />
 
       <View style={{ gap: 10 }}>
         <SectionHeader title="Categories" action="See all" onAction={() => setSelectedCategory('')} />
@@ -114,24 +139,57 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <SectionHeader title="Nearby Shops" action="View all" onAction={() => setSelectedCategory('')} />
-      {shops.length === 0 ? (
-        <EmptyState title="No shops found" message="Try another category or run the quick setup seed." />
+      {noSearchResults ? (
+        <EmptyState title="No shops or products found" message="Try another shop, product, or category name." />
       ) : (
-        shops.map((shop) => <ShopCard key={shop._id} shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />)
+        <SectionHeader title="Nearby Shops" action="View all" onAction={() => setSelectedCategory('')} />
       )}
+    </View>
+  );
 
-      <SectionHeader title="Bestsellers" action="See all" />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
-        {products.slice(0, 12).map((product) => (
-          <ProductCard
-            key={product._id}
-            product={product}
-            onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
-            onAdd={() => addToCart(product)}
+  const renderFooter = () => {
+    if (noSearchResults) return null;
+
+    return (
+      <View style={{ gap: 14 }}>
+        <SectionHeader title={hasSearch ? 'Matching Products' : 'Bestsellers'} action="See all" />
+        {filteredProducts.length === 0 ? (
+          <EmptyState title="No products found" message="Try another category or search term." />
+        ) : (
+          <FlatList
+            horizontal
+            data={filteredProducts.slice(0, 12)}
+            keyExtractor={(product) => product._id}
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingRight: 4 }}
+            renderItem={({ item: product }) => (
+              <ProductCard
+                product={product}
+                onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+                onAdd={() => addToCart(product)}
+              />
+            )}
           />
-        ))}
-      </ScrollView>
-    </ScrollView>
+        )}
+      </View>
+    );
+  };
+
+  if (initialLoading) return <Loader />;
+
+  return (
+    <FlatList
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      data={noSearchResults ? [] : filteredShops}
+      keyExtractor={(shop) => shop._id}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+      ListHeaderComponent={renderHeader}
+      ListEmptyComponent={!noSearchResults ? <EmptyState title="No shops found" message="Try another category or run the quick setup seed." /> : null}
+      ListFooterComponent={renderFooter}
+      renderItem={({ item: shop }) => <ShopCard shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />}
+    />
   );
 }

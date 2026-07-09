@@ -14,6 +14,7 @@ import OrdersScreen from '../screens/OrdersScreen';
 import ProductDetailsScreen from '../screens/ProductDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ShopDetailsScreen from '../screens/ShopDetailsScreen';
+import ShopListingScreen from '../screens/ShopListingScreen';
 import { colors } from '../constants';
 
 const Stack = createNativeStackNavigator();
@@ -83,7 +84,7 @@ function AppTabs() {
       })}
     >
       <Tabs.Screen name="Home" component={HomeStack} />
-      <Tabs.Screen name="Search" component={HomeStack} />
+      <Tabs.Screen name="Search" component={ShopListingScreen} />
       <Tabs.Screen name="Orders" component={OrdersStack} />
       <Tabs.Screen
         name="Cart"

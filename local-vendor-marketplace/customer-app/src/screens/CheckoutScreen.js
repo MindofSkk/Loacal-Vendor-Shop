@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
-import { Button, Card, DeliveryAddressCard, Input, PaymentMethodCard, PriceRow, styles } from '../components/ui';
+import { Button, Card, DeliveryAddressCard, FixedFooter, Input, PaymentMethodCard, PriceRow, styles } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
@@ -15,6 +15,7 @@ export default function CheckoutScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
+  const [errors, setErrors] = useState({});
   const shop = items[0]?.shop;
   const minimumOrder = Number(shop?.deliverySettings?.minimumOrder || 0);
   const deliveryCharge = Number(shop?.deliverySettings?.deliveryCharge || 0);
@@ -56,12 +57,17 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   const placeOrder = async () => {
+    const nextErrors = {};
     if (!address.fullAddress.trim()) {
+      nextErrors.fullAddress = 'Full delivery address is required.';
+      setErrors(nextErrors);
       showToast({ type: 'warning', message: 'Please enter full delivery address.' });
       return;
     }
 
     if (!/^[6-9]\d{9}$/.test(address.phone.trim())) {
+      nextErrors.phone = 'Enter a valid 10 digit mobile number.';
+      setErrors(nextErrors);
       showToast({ type: 'warning', message: 'Enter a valid 10 digit mobile number.' });
       return;
     }
@@ -71,6 +77,7 @@ export default function CheckoutScreen({ navigation }) {
       return;
     }
 
+    setErrors({});
     setLoading(true);
     try {
       const { data } = await orderApi.create({
@@ -112,6 +119,7 @@ export default function CheckoutScreen({ navigation }) {
             placeholder="House no, street, area, city, pincode"
             multiline
             value={address.fullAddress}
+            error={errors.fullAddress}
             onChangeText={(fullAddress) => setAddress({ ...address, fullAddress })}
           />
           <Input
@@ -125,6 +133,7 @@ export default function CheckoutScreen({ navigation }) {
             placeholder="10 digit mobile number"
             keyboardType="phone-pad"
             value={address.phone}
+            error={errors.phone}
             maxLength={10}
             onChangeText={(phone) => setAddress({ ...address, phone: phone.replace(/\D/g, '') })}
           />
@@ -138,25 +147,14 @@ export default function CheckoutScreen({ navigation }) {
           {minimumOrder > 0 ? <Text style={belowMinimum ? { color: '#b45309', fontWeight: '900' } : styles.muted}>Minimum order: Rs.{minimumOrder}</Text> : null}
         </Card>
       </ScrollView>
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          padding: 16,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E7EB'
-        }}
-      >
+      <FixedFooter>
         <Button
-          title={loading ? 'Placing...' : 'Place Order'}
+          title="Place Order"
+          loading={loading}
           disabled={loading || !address.fullAddress || !address.phone || items.length === 0 || belowMinimum}
           onPress={placeOrder}
         />
-      </View>
+      </FixedFooter>
     </KeyboardAvoidingView>
   );
 }

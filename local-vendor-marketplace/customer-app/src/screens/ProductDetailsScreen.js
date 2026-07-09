@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
-import { Button, Card, Loader, StatusBadge, styles } from '../components/ui';
+import { Button, Card, FixedFooter, Loader, StatusBadge, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 
@@ -17,7 +18,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
     productApi
       .get(productId)
       .then(({ data }) => setProduct(data))
-      .catch((err) => Alert.alert('Unable to load product', getApiError(err)))
+      .catch((err) => showToast({ type: 'error', message: getApiError(err) }))
       .finally(() => setLoading(false));
   }, [productId]);
 
@@ -38,26 +39,37 @@ export default function ProductDetailsScreen({ route, navigation }) {
   if (loading) return <Loader />;
 
   const image = product?.images?.[0]?.url;
+  const unavailable = product?.status === 'inactive';
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {image ? (
-        <Image source={{ uri: image }} style={{ height: 240, borderRadius: 22 }} />
-      ) : (
-        <View style={{ height: 180, borderRadius: 22, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={styles.thumbText}>{product?.name?.slice(0, 1) || 'P'}</Text>
-        </View>
-      )}
-      <Card style={{ gap: 10 }}>
-        <View style={styles.between}>
-          <Text style={styles.heading}>{product?.name}</Text>
-          <StatusBadge status={product?.status === 'inactive' ? 'Out' : 'Available'} />
-        </View>
-        <Text style={styles.muted}>{product?.shop?.name}</Text>
-        <Text style={styles.price}>Rs.{product?.price}</Text>
-        <Text style={styles.muted}>{product?.description || 'Fresh from a nearby shop.'}</Text>
-        <Button title="Add to cart" onPress={addToCart} disabled={product?.status === 'inactive'} />
-      </Card>
-    </ScrollView>
+    <View style={styles.screen}>
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 120 }]}>
+        {image ? (
+          <Image source={{ uri: image }} style={{ height: 260, borderRadius: 22, backgroundColor: '#ede9fe' }} />
+        ) : (
+          <View style={{ height: 220, borderRadius: 22, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="cube-outline" size={58} color="#5B2EEB" />
+          </View>
+        )}
+        <Card style={{ gap: 12 }}>
+          <View style={styles.between}>
+            <Text style={[styles.heading, { flex: 1 }]}>{product?.name}</Text>
+            <StatusBadge status={unavailable ? 'Unavailable' : 'Available'} />
+          </View>
+          <Text style={styles.muted}>{product?.shop?.name || 'Local shop'}</Text>
+          <Text style={[styles.price, { fontSize: 28 }]}>Rs.{product?.price}</Text>
+          <Text style={styles.muted}>{product?.description || 'Fresh from a nearby shop.'}</Text>
+          <View style={styles.metaPills}>
+            {product?.brand ? <Text style={styles.pill}>{product.brand}</Text> : null}
+            {product?.foodCategory ? <Text style={styles.pill}>{product.foodCategory}</Text> : null}
+            {product?.groceryCategory ? <Text style={styles.pill}>{product.groceryCategory}</Text> : null}
+            {product?.packSize ? <Text style={styles.pill}>{product.packSize}</Text> : null}
+          </View>
+        </Card>
+      </ScrollView>
+      <FixedFooter>
+        <Button title={unavailable ? 'Unavailable' : 'Add to cart'} onPress={addToCart} disabled={unavailable} />
+      </FixedFooter>
+    </View>
   );
 }
