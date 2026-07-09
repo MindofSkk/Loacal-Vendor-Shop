@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "LocalShop Customer",
+    "slug": "localshop-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "android": {
+      "package": "com.localvendormarketplace.customer",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Location helps the seller deliver faster."
+        }
+      ]
+    ]
+  }
+}

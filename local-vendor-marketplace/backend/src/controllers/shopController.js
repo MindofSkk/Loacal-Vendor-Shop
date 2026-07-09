@@ -1,8 +1,26 @@
+import { Readable } from 'node:stream';
+import { cloudinary, configureCloudinary } from '../config/cloudinary.js';
 import { Notification } from '../models/Notification.js';
 import { Shop } from '../models/Shop.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { decorateShopForCustomer, defaultWorkingHours } from '../utils/shopStatus.js';
+
+const uploadLogoBufferToCloudinary = (file) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'local-vendor-marketplace/shop-logos' },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(result.secure_url);
+      }
+    );
+
+    Readable.from(file.buffer).pipe(stream);
+  });
 
 const buildShopQuery = (queryParams) => {
   const { q, area, city, category, status } = queryParams;
@@ -111,6 +129,19 @@ export const createOrUpdateMyShop = asyncHandler(async (req, res) => {
   }
 
   res.status(existingShop ? 200 : 201).json(shop);
+});
+
+export const uploadMyShopLogo = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'Shop logo image is required');
+  }
+
+  if (!configureCloudinary()) {
+    throw new ApiError(500, 'Cloudinary is not configured');
+  }
+
+  const logoUrl = await uploadLogoBufferToCloudinary(req.file);
+  res.json({ logoUrl });
 });
 
 export const getMyShopSettings = asyncHandler(async (req, res) => {
