@@ -26,7 +26,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <main className="max-w-[1480px] px-4 py-5 sm:px-6 lg:ml-60 lg:max-w-none lg:px-6">
+      <main className="max-w-[1440px] px-4 py-4 sm:px-5 lg:ml-56 lg:max-w-none lg:px-5">
         <Routes>
           <Route path="/" element={<CustomerHome />} />
           <Route path="/products/:id" element={<ProductDetails />} />

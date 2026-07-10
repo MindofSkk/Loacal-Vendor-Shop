@@ -155,6 +155,8 @@ export default function AdminDashboard() {
           includesText(shop.owner?.name, query) ||
           includesText(shop.owner?.email, query) ||
           includesText(shop.status, query) ||
+          includesText(shop.businessType, query) ||
+          includesText(shop.category?.name, query) ||
           includesText(shop.location?.area, query) ||
           includesText(shop.location?.city, query)
       ),
@@ -182,43 +184,51 @@ export default function AdminDashboard() {
           includesText(order.customer?.name, query) ||
           includesText(order.customer?.email, query) ||
           includesText(order.shop?.name, query) ||
+          includesText(order.shop?.businessType, query) ||
           includesText(order.status, query)
       ),
     [orders, query]
   );
   const visibleCategories = useMemo(
-    () => categories.filter((category) => !query || includesText(category.name, query) || includesText(category.slug, query)),
+    () =>
+      categories.filter(
+        (category) =>
+          !query ||
+          includesText(category.name, query) ||
+          includesText(category.slug, query) ||
+          includesText(category.description, query)
+      ),
     [categories, query]
   );
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div>
         <p className="label">Admin console</p>
-        <h1 className="text-2xl font-black">Marketplace Control</h1>
+        <h1 className="text-xl font-black">Marketplace Control</h1>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
         <div className="panel">
           <p className="label">Users</p>
-          <p className="mt-2 text-3xl font-black text-blue-700">{users.length}</p>
+          <p className="mt-1.5 text-2xl font-black text-blue-700">{users.length}</p>
         </div>
         <div className="panel">
           <p className="label">Shops</p>
-          <p className="mt-2 text-3xl font-black text-emerald-700">{shops.length}</p>
+          <p className="mt-1.5 text-2xl font-black text-emerald-700">{shops.length}</p>
         </div>
         <div className="panel">
           <p className="label">Orders</p>
-          <p className="mt-2 text-3xl font-black text-violet-700">{orders.length}</p>
+          <p className="mt-1.5 text-2xl font-black text-violet-700">{orders.length}</p>
         </div>
         <div className="panel">
           <p className="label">Categories</p>
-          <p className="mt-2 text-3xl font-black text-amber-600">{categories.length}</p>
+          <p className="mt-1.5 text-2xl font-black text-amber-600">{categories.length}</p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {['shops', 'users', 'orders', 'categories'].map((item) => (
+        {['shops', 'users', 'orders', 'categories', 'settings'].map((item) => (
           <button key={item} className={tab === item ? 'btn-primary' : 'btn-secondary'} type="button" onClick={() => navigateAdminTab(item)}>
             {item[0].toUpperCase() + item.slice(1)}
           </button>
@@ -359,7 +369,7 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'categories' && (
-        <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+        <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
           <form className="panel h-fit space-y-3" onSubmit={addCategory}>
             <h2 className="text-lg font-black">Add category</h2>
             <input className="field" placeholder="Category name" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required />

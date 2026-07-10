@@ -11,7 +11,6 @@ dotenv.config();
 
 const sellerEmail = 'biki@gmail.com';
 const sellerPassword = '123456';
-const fallbackImage = 'https://placehold.co/600x400?text=Product+Image';
 const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const standardWorkingHours = weekDays.map((day) => ({ day, openTime: '09:00', closeTime: '21:00', closed: false }));
 

@@ -87,6 +87,11 @@ const productSchema = new mongoose.Schema(
       default: false
     },
     images: [imageSchema],
+    isDemoProduct: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     status: {
       type: String,
       enum: ['active', 'inactive'],

@@ -126,6 +126,13 @@ export default function CartV2() {
         <h1 className="text-2xl font-black">Cart</h1>
         {items.map((item) => (
           <article key={item._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-violet-50 text-xs font-bold text-violet-700">
+              {item.images?.[0]?.url ? (
+                <img className="h-full w-full object-cover" src={item.images[0].url} alt={item.name} />
+              ) : (
+                'Image'
+              )}
+            </div>
             <div>
               <p className="font-black">{item.name}</p>
               <p className="text-sm text-stone-600">₹{item.price} each</p>

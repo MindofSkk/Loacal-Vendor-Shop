@@ -7,6 +7,7 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('lvm_token');
 
+  // Centralizes JWT attachment so feature pages do not repeat auth header logic.
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -17,6 +18,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Broadcast 401s so all protected UI can return to login consistently.
     if (error.response?.status === 401) {
       localStorage.removeItem('lvm_token');
       localStorage.removeItem('lvm_user');

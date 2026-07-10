@@ -17,7 +17,10 @@
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "test": "npm test --prefix backend && npm test --prefix frontend",
     "seed": "npm run seed --prefix backend",
-    "seed:setup": "npm run seed:setup --prefix backend"
+    "seed:setup": "npm run seed:setup --prefix backend",
+    "seed:fresh": "npm run seed:fresh --prefix backend",
+    "cleanup:dry": "npm run cleanup:dry --prefix backend",
+    "cleanup:run": "npm run cleanup:run --prefix backend"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

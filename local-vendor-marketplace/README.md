@@ -105,13 +105,28 @@ EXPO_PUBLIC_API_URL=http://192.168.29.44:5000/api
 npm run seed
 ```
 
-6. Optional: seed quick-start admin, sellers, customers, shops, and starter products:
+6. Optional for production demo: seed a fresh MVP baseline:
+
+```bash
+npm run seed:fresh
+```
+
+This creates or updates only:
+
+- Admin: `admin@local.com` / `admin123`
+- Biki seller: `biki@gmail.com` / `123456`
+- Restaurant seller: `restaurant@localshop.in` / `Setup1234`
+- Customer: `customer@localshop.in` / `Setup1234`
+- Three MVP categories
+- Biki Kirana Store with realistic grocery products
+
+7. Optional for development only: seed quick-start demo admin, sellers, customers, shops, and starter products:
 
 ```bash
 npm run seed:setup
 ```
 
-This creates:
+This creates local test/demo accounts:
 
 - Admin: `admin@local.com` / `admin123`
 - Restaurant seller: `restaurant.seller@local.test` / `Setup1234`
@@ -127,7 +142,7 @@ This creates:
 
 The setup seed is rerunnable. It upserts setup users and shops, then replaces only those setup shops' products.
 
-7. Start web backend and frontend:
+8. Start web backend and frontend:
 
 ```bash
 npm run dev
@@ -137,13 +152,13 @@ Frontend: `http://localhost:5173`
 
 Backend: `http://localhost:5000/api`
 
-8. Start the Android customer app:
+9. Start the Android customer app:
 
 ```bash
 npm run dev:customer-app
 ```
 
-9. Start the Android seller app:
+10. Start the Android seller app:
 
 ```bash
 npm run dev:seller-app
@@ -167,6 +182,40 @@ Use the IPv4 address of your active Wi-Fi/LAN adapter in `EXPO_PUBLIC_API_URL`. 
 ```env
 EXPO_PUBLIC_API_URL=http://192.168.29.44:5000/api
 ```
+
+## Production Cleanup
+
+Before deployment, audit cleanup candidates first and run the database cleanup in dry-run mode.
+
+```bash
+npm run cleanup:dry
+```
+
+The dry run prints current record counts and all records that would be deleted. It does not delete anything.
+
+Only after reviewing the dry-run output, run:
+
+```bash
+npm run cleanup:run
+```
+
+The cleanup script protects:
+
+- `admin@local.com`
+- `biki@gmail.com`
+- approved shops
+- users who own approved shops
+- products from protected shops unless they are explicitly marked `isDemoProduct: true`
+
+Cleanup targets include:
+
+- demo/test users such as `@demo.com`, `@local.test`, `@test.local`, and `example.com`
+- non-approved demo/test shops
+- products linked to selected demo shops
+- orders linked to selected demo users or demo shops
+- exact duplicate categories after keeping the first record
+
+Warning: never run `cleanup:run` against production without reading the dry-run table first.
 
 ## Local Flow
 

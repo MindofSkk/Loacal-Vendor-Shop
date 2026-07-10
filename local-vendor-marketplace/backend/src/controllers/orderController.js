@@ -53,6 +53,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, openStatus.message || 'Shop is closed right now');
   }
 
+  // Store manual address for every order and add a map link only when coordinates exist.
   const normalizedDeliveryAddress = {
     fullAddress: deliveryAddress.fullAddress,
     landmark: deliveryAddress.landmark,

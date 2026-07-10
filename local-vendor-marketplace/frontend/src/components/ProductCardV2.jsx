@@ -48,7 +48,7 @@ export default function ProductCardV2({ product }) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <Link to={`/products/${product._id}`} className="block">
-        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-slate-100">
+        <div className="flex aspect-[5/3] max-h-36 items-center justify-center overflow-hidden bg-slate-100">
           {image ? (
             <img src={image} alt={product.name} className="h-full w-full object-cover" />
           ) : (
@@ -56,14 +56,14 @@ export default function ProductCardV2({ product }) {
           )}
         </div>
       </Link>
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div className="flex flex-1 flex-col gap-1.5 p-3">
         <div>
           <p className="text-xs font-bold text-violet-700">{product.shop?.name}</p>
-          <Link to={`/products/${product._id}`} className="font-black text-slate-950 hover:text-violet-700">
+          <Link to={`/products/${product._id}`} className="font-bold text-slate-950 hover:text-violet-700">
             {product.name}
           </Link>
         </div>
-        <p className="line-clamp-2 text-sm text-slate-600">{product.description || 'Fresh from a nearby shop.'}</p>
+        <p className="line-clamp-2 text-xs text-slate-600">{product.description || 'Fresh from a nearby shop.'}</p>
         <p className="text-xs font-semibold text-slate-500">
           {product.businessType === 'Restaurant' && `${product.vegType || ''} ${product.foodCategory || ''}`}
           {product.businessType === 'Grocery / Kirana Store' && `${product.brand || ''} ${product.packSize || ''} | ${product.stock} in stock`}
@@ -71,7 +71,7 @@ export default function ProductCardV2({ product }) {
         </p>
         <div className="mt-auto flex items-center justify-between">
           <div>
-            <p className="text-lg font-black">₹{product.price}</p>
+            <p className="text-base font-black">₹{product.price}</p>
             <p className="text-xs font-semibold text-slate-500">
               {product.shop?.temporaryClosure?.enabled ? 'Shop temporarily closed' : orderable ? 'Available' : 'Not available'}
             </p>

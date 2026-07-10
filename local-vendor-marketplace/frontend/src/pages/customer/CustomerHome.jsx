@@ -1,6 +1,6 @@
-import { ArrowRight, Clock, MapPin, Milk, Navigation, Search, ShoppingBasket, Star, Store, Truck, Utensils } from 'lucide-react';
+import { ArrowRight, Clock, MapPin, Milk, ShoppingBasket, Star, Store, Truck, Utensils } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { categoryApi, productApi, shopApi } from '../../api/services';
 import ProductCard from '../../components/ProductCardV2';
@@ -33,51 +33,31 @@ const includesText = (value, query) => String(value || '').toLowerCase().include
 
 export default function CustomerHome() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const latitudeParam = searchParams.get('latitude') || '';
+  const longitudeParam = searchParams.get('longitude') || '';
   const [categories, setCategories] = useState([]);
   const [allShops, setAllShops] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [filters, setFilters] = useState({ q: '', area: '', city: '', category: '' });
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedShop, setSelectedShop] = useState(null);
-  const [customerLocation, setCustomerLocation] = useState(null);
-  const [locationMessage, setLocationMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const loadData = async (override = {}, locationOverride = customerLocation) => {
-    const nextFilters = { ...filters, ...override };
-    const locationParams = locationOverride
-      ? { latitude: locationOverride.latitude, longitude: locationOverride.longitude }
-      : {};
-    setLoading(true);
-    setError('');
-
-    try {
-      const [categoryRes, shopRes, productRes] = await Promise.all([
-        categoryApi.list(),
-        shopApi.list({ q: '', area: '', city: '', category: '', ...locationParams }),
-        productApi.list({ q: '', category: '' })
-      ]);
-      setCategories(categoryRes.data.filter((category) => category.isActive));
-      setAllShops(shopRes.data);
-      setAllProducts(productRes.data);
-      setFilters(nextFilters);
-    } catch (err) {
-      setError(getApiError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     const loadInitialData = async () => {
+      const locationParams =
+        latitudeParam && longitudeParam
+          ? { latitude: latitudeParam, longitude: longitudeParam }
+          : {};
       setLoading(true);
       setError('');
 
       try {
         const [categoryRes, shopRes, productRes] = await Promise.all([
           categoryApi.list(),
-          shopApi.list({ q: '', area: '', city: '', category: '' }),
+          shopApi.list({ q: '', area: '', city: '', category: '', ...locationParams }),
           productApi.list({ q: '', category: '' })
         ]);
         setCategories(categoryRes.data.filter((category) => category.isActive));
@@ -91,7 +71,18 @@ export default function CustomerHome() {
     };
 
     loadInitialData();
-  }, []);
+  }, [latitudeParam, longitudeParam]);
+
+  useEffect(() => {
+    const query = searchParams.get('q') || '';
+    const area = searchParams.get('area') || '';
+    const city = searchParams.get('city') || '';
+    setFilters((current) =>
+      current.q === query && current.area === area && current.city === city
+        ? current
+        : { ...current, q: query, area, city }
+    );
+  }, [searchParams]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -101,6 +92,7 @@ export default function CustomerHome() {
     return () => window.clearTimeout(timeout);
   }, [filters.q]);
 
+  // Navbar search updates URL params; filtering stays local to avoid reloads on every keystroke.
   const shops = useMemo(() => {
     const q = debouncedSearch;
     return allShops.filter((shop) => {
@@ -114,7 +106,9 @@ export default function CustomerHome() {
         includesText(shop.name, q) ||
         includesText(shop.description, q) ||
         includesText(shop.businessType, q) ||
-        includesText(categoryName, q);
+        includesText(categoryName, q) ||
+        includesText(shop.location?.area, q) ||
+        includesText(shop.location?.city, q);
 
       return matchesCategory && matchesArea && matchesCity && matchesSearch;
     });
@@ -140,40 +134,13 @@ export default function CustomerHome() {
         includesText(product.dairyBakeryType, q) ||
         includesText(product.businessType, q) ||
         includesText(categoryName, q) ||
-        includesText(shop.name, q);
+        includesText(shop.name, q) ||
+        includesText(shop.location?.area, q) ||
+        includesText(shop.location?.city, q);
 
       return matchesShop && matchesCategory && matchesArea && matchesCity && matchesSearch;
     });
   }, [allProducts, debouncedSearch, filters.area, filters.category, filters.city, selectedShop]);
-
-  const handleSearch = (event) => {
-    event.preventDefault();
-    setSelectedShop(null);
-    setDebouncedSearch(filters.q.trim().toLowerCase());
-  };
-
-  const useCustomerLocation = () => {
-    setLocationMessage('');
-
-    if (!navigator.geolocation) {
-      setLocationMessage('Browser location is not supported.');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const nextLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        };
-        setCustomerLocation(nextLocation);
-        setLocationMessage('Location added. Distances are shown where shop coordinates are available.');
-        loadData({}, nextLocation);
-      },
-      () => setLocationMessage('Location permission denied. You can still browse shops.'),
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
 
   const selectCategory = (categoryName) => {
     const category = categories.find((item) => item.name === categoryName);
@@ -194,111 +161,50 @@ export default function CustomerHome() {
   const dashboardText = user?.role === 'admin' ? 'Go to Admin Dashboard' : user?.role === 'seller' ? 'Go to Seller Dashboard' : 'View My Orders';
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
-          <div className="grid gap-5 lg:grid-cols-[1fr_260px] lg:items-center">
+    <div className="space-y-5">
+      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center">
             <div>
-              <p className="text-sm font-black uppercase tracking-wide text-violet-700">Local delivery marketplace</p>
-              <h1 className="mt-3 max-w-xl text-3xl font-black leading-tight text-slate-950 sm:text-4xl">
+              <p className="text-xs font-black uppercase tracking-wide text-violet-700">Local delivery marketplace</p>
+              <h1 className="mt-2 max-w-xl text-3xl font-black leading-tight text-slate-950">
                 Order from nearby local shops
               </h1>
-              <p className="mt-3 max-w-xl text-sm font-semibold text-slate-600">
+              <p className="mt-2 max-w-xl text-sm font-semibold text-slate-600">
                 Restaurant, Grocery / Kirana, Dairy and Bakery products delivered by nearby sellers.
               </p>
-              {user ? (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Link className="btn-primary" to={dashboardLink}>
-                    {dashboardText}
-                  </Link>
-                  {user.role === 'customer' && (
-                    <Link className="btn-secondary" to="/cart">
-                      View Cart
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Link className="btn-primary" to="/login">
-                    Customer Login
-                  </Link>
-                  <Link className="btn-secondary" to="/login">
-                    Seller Login
-                  </Link>
-                  <Link className="btn-secondary" to="/register?role=seller">
-                    Seller Registration
-                  </Link>
-                </div>
-              )}
-            </div>
-            <div className="hidden rounded-2xl border border-white/80 bg-white/70 p-4 shadow-sm lg:block">
-              <div className="mx-auto flex h-40 w-40 items-center justify-center rounded-full bg-violet-100">
-                <Truck className="h-20 w-20 text-violet-700" />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link className="btn-primary" to={user?.role === 'seller' || user?.role === 'admin' ? dashboardLink : '/orders'}>
+                  {user?.role === 'seller' || user?.role === 'admin' ? dashboardText : 'View My Orders'}
+                </Link>
+                <Link className="btn-secondary" to="/cart">
+                  View Cart
+                </Link>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-bold text-slate-600">
+            </div>
+            <div className="hidden rounded-2xl border border-white/80 bg-white/70 p-3 shadow-sm lg:block">
+              <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full bg-violet-100">
+                <Truck className="h-16 w-16 text-violet-700" />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs font-bold text-slate-600">
                 <span className="rounded-lg bg-white px-2 py-2">Fast delivery</span>
                 <span className="rounded-lg bg-white px-2 py-2">Local sellers</span>
               </div>
             </div>
           </div>
 
-          {locationMessage && <p className="mt-4 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700">{locationMessage}</p>}
-
-          <form className="mt-5 grid gap-3 rounded-2xl bg-white p-3 shadow-sm sm:grid-cols-4" onSubmit={handleSearch}>
-            <label className="sm:col-span-2">
-              <span className="sr-only">Search shops or products</span>
-              <input
-                className="field"
-                placeholder="Search shops or products..."
-                value={filters.q}
-                onChange={(event) => setFilters({ ...filters, q: event.target.value })}
-              />
-            </label>
-            <input
-              className="field"
-              placeholder="Area"
-              value={filters.area}
-              onChange={(event) => setFilters({ ...filters, area: event.target.value })}
-            />
-            <input
-              className="field"
-              placeholder="City"
-              value={filters.city}
-              onChange={(event) => setFilters({ ...filters, city: event.target.value })}
-            />
-            <select
-              className="field sm:col-span-2"
-              value={filters.category}
-              onChange={(event) => setFilters({ ...filters, category: event.target.value })}
-            >
-              <option value="">All categories</option>
-              {categories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <button className="btn-primary" type="submit">
-              <Search className="h-4 w-4" />
-              Search
-            </button>
-            <button className="btn-secondary" type="button" onClick={useCustomerLocation}>
-              <Navigation className="h-4 w-4" />
-              Use location
-            </button>
-          </form>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
           <div className="panel">
             <p className="label">Marketplace today</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-violet-50 p-3">
-                <p className="text-3xl font-black text-violet-700">{shops.length}</p>
+                <p className="text-2xl font-black text-violet-700">{shops.length}</p>
                 <p className="text-sm font-bold text-slate-600">Nearby shops</p>
               </div>
               <div className="rounded-xl bg-emerald-50 p-3">
-                <p className="text-3xl font-black text-emerald-700">{products.length}</p>
+                <p className="text-2xl font-black text-emerald-700">{products.length}</p>
                 <p className="text-sm font-bold text-slate-600">Products</p>
               </div>
             </div>

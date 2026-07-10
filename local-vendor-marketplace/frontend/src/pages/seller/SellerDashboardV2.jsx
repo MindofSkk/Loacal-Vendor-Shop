@@ -82,6 +82,7 @@ const buildWhatsAppUrl = (order, phone) => {
   const encodedMessage = encodeURIComponent(buildWhatsAppMessage(order));
   const cleanPhone = phone?.replace(/\D/g, '');
 
+  // Send directly to a saved delivery boy when selected, otherwise open generic WhatsApp share.
   if (cleanPhone) {
     const phoneWithCountryCode = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
     return `https://wa.me/${phoneWithCountryCode}?text=${encodedMessage}`;
@@ -476,11 +477,11 @@ export default function SellerDashboardV2() {
   };
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="label">Seller workspace</p>
-          <h1 className="text-2xl font-black">Dashboard</h1>
+          <h1 className="text-xl font-black">Dashboard</h1>
         </div>
         {shop && <StatusBadge status={shop.status} />}
       </div>
@@ -496,19 +497,19 @@ export default function SellerDashboardV2() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="panel">
           <p className="label">New Orders</p>
-          <p className="mt-2 text-3xl font-black text-emerald-700">{newOrderCount}</p>
+          <p className="mt-1.5 text-2xl font-black text-emerald-700">{newOrderCount}</p>
         </div>
         <div className="panel">
           <p className="label">Active Orders</p>
-          <p className="mt-2 text-3xl font-black text-amber-600">{activeOrderCount}</p>
+          <p className="mt-1.5 text-2xl font-black text-amber-600">{activeOrderCount}</p>
         </div>
         <div className="panel">
           <p className="label">Completed Orders</p>
-          <p className="mt-2 text-3xl font-black text-blue-700">{completedOrderCount}</p>
+          <p className="mt-1.5 text-2xl font-black text-blue-700">{completedOrderCount}</p>
         </div>
         <div className="panel">
           <p className="label">Revenue</p>
-          <p className="mt-2 text-3xl font-black text-slate-950">₹{totalRevenue}</p>
+          <p className="mt-1.5 text-2xl font-black text-slate-950">₹{totalRevenue}</p>
         </div>
       </div>
 
@@ -516,7 +517,7 @@ export default function SellerDashboardV2() {
       {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
       {tab === 'shop' && shop?.status === 'approved' && !isEditingShop && (
-        <section className="panel space-y-4">
+        <section className="panel space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap items-start gap-3">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-xl font-black text-emerald-700">
@@ -524,7 +525,7 @@ export default function SellerDashboardV2() {
               </div>
               <div>
                 <p className="label">{shop.businessType}</p>
-                <h2 className="text-xl font-black">{shop.name}</h2>
+                <h2 className="text-lg font-black">{shop.name}</h2>
                 <p className="text-sm text-stone-600">{shop.description || 'No description added.'}</p>
               </div>
             </div>
@@ -689,14 +690,14 @@ export default function SellerDashboardV2() {
       )}
 
       {tab === 'settings' && (
-        <form className="space-y-4" onSubmit={saveSettings}>
+        <form className="space-y-3" onSubmit={saveSettings}>
           {!shop && <p className="panel text-stone-600">Create a shop profile before editing business settings.</p>}
           {shop && (
             <>
               <section className="panel space-y-3">
                 <div>
                   <p className="label">Business Settings</p>
-                  <h2 className="text-xl font-black">Working Hours</h2>
+                  <h2 className="text-lg font-black">Working Hours</h2>
                 </div>
                 <div className="grid gap-3">
                   {settingsForm.workingHours.map((entry, index) => (
@@ -716,7 +717,7 @@ export default function SellerDashboardV2() {
               <section className="panel grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <p className="label">Delivery Settings</p>
-                  <h2 className="text-xl font-black">Delivery Rules</h2>
+                  <h2 className="text-lg font-black">Delivery Rules</h2>
                 </div>
                 <label>
                   <span className="label">Delivery Radius (KM)</span>
@@ -743,7 +744,7 @@ export default function SellerDashboardV2() {
               <section className="panel grid gap-3 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <p className="label">Temporary Closure</p>
-                  <h2 className="text-xl font-black">Close Shop Temporarily</h2>
+                  <h2 className="text-lg font-black">Close Shop Temporarily</h2>
                 </div>
                 <label className="flex items-center gap-2 font-bold">
                   <input type="checkbox" checked={settingsForm.temporaryClosure.enabled} onChange={(event) => setSettingsForm({ ...settingsForm, temporaryClosure: { ...settingsForm.temporaryClosure, enabled: event.target.checked } })} />
@@ -771,7 +772,7 @@ export default function SellerDashboardV2() {
       )}
 
       {tab === 'products' && (
-        <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+        <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
           <form className="panel h-fit space-y-3" onSubmit={createProduct}>
             <div>
               <p className="label">{activeBusinessType}</p>
@@ -847,7 +848,7 @@ export default function SellerDashboardV2() {
             {visibleProducts.map((product) => (
               <article key={product._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100 text-sm font-bold text-stone-500">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100 text-sm font-bold text-stone-500">
                     {product.images?.[0]?.url ? <img className="h-full w-full object-cover" src={product.images[0].url} alt={product.name} /> : 'Image'}
                   </div>
                   <div>

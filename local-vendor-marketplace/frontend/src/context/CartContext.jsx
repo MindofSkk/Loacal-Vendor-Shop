@@ -3,6 +3,7 @@ import { createContext, useContext, useState } from 'react';
 const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
+  // Cart is local-only in the MVP and is restored after page refresh.
   const [items, setItems] = useState(() => {
     const stored = localStorage.getItem('lvm_cart');
     return stored ? JSON.parse(stored) : [];
@@ -18,6 +19,7 @@ export const CartProvider = ({ children }) => {
     const existingShopId = items[0]?.shop?._id || items[0]?.shop;
     const productShopId = product.shop?._id || product.shop;
 
+    // One-shop cart keeps seller-owned delivery and minimum-order rules predictable.
     if (existingShopId && productShopId && existingShopId !== productShopId) {
       const message = 'Cart can contain products from one shop at a time. Clear cart before ordering from another shop.';
       setCartError(message);

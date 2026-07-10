@@ -116,6 +116,7 @@ export const getMyShop = asyncHandler(async (req, res) => {
 });
 
 export const createOrUpdateMyShop = asyncHandler(async (req, res) => {
+  // Delivery boy contacts are optional and should not block shop profile approval.
   const deliveryBoys = (req.body.deliveryBoys || []).filter((contact) => contact?.name || contact?.phone);
   const payload = {
     ...req.body,
@@ -152,6 +153,7 @@ export const uploadMyShopLogo = asyncHandler(async (req, res) => {
     throw new ApiError(500, 'Cloudinary is not configured');
   }
 
+  // Logos use a separate Cloudinary folder so product images and shop branding stay easy to manage.
   const logoUrl = await uploadLogoBufferToCloudinary(req.file);
   res.json({ logoUrl });
 });
@@ -184,6 +186,7 @@ export const updateMyShopSettings = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Create a shop profile before managing business settings');
   }
 
+  // These settings drive open/closed badges, delivery radius checks, and checkout blocking.
   shop.workingHours = req.body.workingHours;
   shop.deliverySettings = {
     radiusKm: Number(req.body.deliverySettings.radiusKm),

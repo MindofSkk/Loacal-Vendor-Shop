@@ -12,6 +12,7 @@ export default function ProtectedRoute({ children, roles }) {
     return <Navigate to="/login" replace />;
   }
 
+  // Keeps customer, seller, and admin screens isolated even when routes are typed manually.
   if (roles && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }

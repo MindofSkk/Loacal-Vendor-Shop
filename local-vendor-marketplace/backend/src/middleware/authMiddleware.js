@@ -22,6 +22,7 @@ export const protect = asyncHandler(async (req, _res, next) => {
   next();
 });
 
+// Blocks authenticated users from crossing into another role's API surface.
 export const authorize = (...roles) => (req, _res, next) => {
   if (!roles.includes(req.user.role)) {
     return next(new ApiError(403, 'You do not have permission to perform this action'));
