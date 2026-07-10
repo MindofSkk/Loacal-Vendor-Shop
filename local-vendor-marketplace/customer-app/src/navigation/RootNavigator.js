@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Loader } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -23,7 +24,7 @@ const Tabs = createBottomTabNavigator();
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
-      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'LocalShop' }} />
+      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ShopDetails" component={ShopDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Details' }} />
     </Stack.Navigator>
@@ -62,7 +63,9 @@ function getTabIcon(routeName, focused) {
 
 function AppTabs() {
   const { items } = useCart();
+  const insets = useSafeAreaInsets();
   const cartQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs.Navigator
@@ -71,16 +74,23 @@ function AppTabs() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontWeight: '900', fontSize: 12 },
+        tabBarLabelStyle: { fontWeight: '800', fontSize: 11, marginTop: 1 },
+        tabBarItemStyle: { paddingVertical: 4 },
         tabBarStyle: {
-          height: 68,
-          paddingTop: 8,
-          paddingBottom: 10,
+          height: 56 + bottomInset,
+          paddingTop: 6,
+          paddingBottom: bottomInset,
           borderTopColor: colors.border,
-          backgroundColor: '#fff'
+          borderTopWidth: 1,
+          backgroundColor: '#fff',
+          shadowColor: '#111827',
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 10
         },
         tabBarIcon: ({ color, focused }) => (
-          <Ionicons name={getTabIcon(route.name, focused)} size={22} color={color} />
+          <Ionicons name={getTabIcon(route.name, focused)} size={focused ? 23 : 22} color={color} />
         )
       })}
     >

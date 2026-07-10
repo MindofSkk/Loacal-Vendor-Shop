@@ -88,7 +88,7 @@ export function AppHeader({ title, subtitle, right }) {
   );
 }
 
-export function CompactLocationHeader({ greeting = 'Hello!', addressText, loading, onPressLocation }) {
+export function CompactLocationHeader({ greeting = 'Hello!', addressText, loading, onPressLocation, onPressProfile, onPressNotifications }) {
   return (
     <View style={styles.homeHeader}>
       <View style={styles.flex}>
@@ -102,18 +102,18 @@ export function CompactLocationHeader({ greeting = 'Hello!', addressText, loadin
         </Pressable>
       </View>
       <View style={styles.headerActions}>
-        <View style={styles.smallIconButton}>
+        <Pressable onPress={onPressNotifications} hitSlop={10} style={({ pressed }) => [styles.smallIconButton, pressed ? styles.pressed : null]}>
           <Ionicons name="notifications-outline" size={22} color={colors.ink} />
-        </View>
-        <View style={[styles.smallIconButton, { backgroundColor: '#EDE9FE' }]}>
+        </Pressable>
+        <Pressable onPress={onPressProfile} hitSlop={10} style={({ pressed }) => [styles.smallIconButton, styles.profileIconButton, pressed ? styles.pressed : null]}>
           <Ionicons name="person" size={22} color={colors.primary} />
-        </View>
+        </Pressable>
       </View>
     </View>
   );
 }
 
-export function SearchBar({ value, onChangeText, onClear, onVoicePress, placeholder = 'Search for shops or products...' }) {
+export function SearchBar({ value, onChangeText, onClear, onVoicePress, placeholder = 'Search shops, groceries, food...' }) {
   const inputRef = useRef(null);
   const handleVoicePress = () => {
     inputRef.current?.focus();
@@ -359,24 +359,35 @@ export function CategoryCard({ title, subtitle, active, onPress }) {
 
 export function ShopCard({ shop, onPress }) {
   const open = shop.openStatus?.isOpenNow && !shop.temporaryClosure?.enabled;
+  const eta = shop.deliverySettings?.estimatedDeliveryTime || '25-30 min';
+  const deliveryCharge = shop.deliverySettings?.deliveryCharge ?? 0;
+  const minimumOrder = shop.deliverySettings?.minimumOrder ?? 0;
+  const distance = shop.distanceKm == null ? 'Nearby' : `${shop.distanceKm} km`;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed ? styles.pressed : null]}>
       <Card style={styles.shopCard}>
-        <View style={styles.row}>
+        <View style={styles.shopCardRow}>
           <View style={styles.shopThumb}>
             {shop.logoUrl ? <Image source={{ uri: shop.logoUrl }} style={styles.image} /> : <Ionicons name="storefront-outline" size={24} color={colors.primary} />}
           </View>
-          <View style={styles.flex}>
+          <View style={styles.shopInfo}>
             <View style={styles.between}>
-              <Text style={styles.title} numberOfLines={1}>{shop.name}</Text>
-              <StatusBadge status={open ? 'Open' : 'Closed'} />
+              <Text style={styles.shopTitle} numberOfLines={1}>{shop.name}</Text>
+              <View style={[styles.miniStatusBadge, open ? styles.greenBadge : styles.redBadge]}>
+                <Text style={styles.miniStatusText}>{open ? 'Open' : 'Closed'}</Text>
+              </View>
             </View>
-            <Text style={styles.muted} numberOfLines={1}>{shop.businessType}</Text>
-            <Text style={styles.small} numberOfLines={1}>4.5 | {shop.deliverySettings?.estimatedDeliveryTime || '25-30 min'} | Min Rs.{shop.deliverySettings?.minimumOrder || 0}</Text>
-            <Text style={styles.small}>
-              Delivery Rs.{shop.deliverySettings?.deliveryCharge || 0} | {shop.distanceKm == null ? 'Nearby' : `${shop.distanceKm} km`}
-            </Text>
+            <Text style={styles.shopType} numberOfLines={1}>{shop.businessType}</Text>
+            <View style={styles.shopMetaRow}>
+              <Ionicons name="star" size={12} color="#F59E0B" />
+              <Text style={styles.shopMetaText}>4.5</Text>
+              <Text style={styles.shopMetaDot}>•</Text>
+              <Text style={styles.shopMetaText}>{eta}</Text>
+              <Text style={styles.shopMetaDot}>•</Text>
+              <Text style={styles.shopMetaText}>Rs.{deliveryCharge} delivery</Text>
+            </View>
+            <Text style={styles.shopSecondary} numberOfLines={1}>Min Rs.{minimumOrder} · {distance}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.muted} />
         </View>
@@ -538,17 +549,17 @@ export const AppCard = Card;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, paddingBottom: 116, gap: 14 },
+  content: { padding: 16, paddingTop: 14, paddingBottom: 96, gap: 12 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
+    padding: 12,
     shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 3
   },
   hero: {
@@ -560,21 +571,22 @@ export const styles = StyleSheet.create({
   screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: colors.bg },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   appHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
-  homeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
-  greeting: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 6 },
+  homeHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingTop: 2 },
+  greeting: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 4 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
-  locationText: { color: colors.ink, fontSize: 14, fontWeight: '700', flexShrink: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locationText: { color: colors.ink, fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 1 },
   smallIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border
   },
+  profileIconButton: { backgroundColor: '#EDE9FE', borderColor: '#DDD6FE' },
   headerTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
   headerSubtitle: { color: colors.muted, fontWeight: '600', fontSize: 12, marginTop: 2 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -623,14 +635,22 @@ export const styles = StyleSheet.create({
   outlineDangerText: { color: colors.red },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.78 },
-  shopCard: { gap: 8, padding: 10 },
+  shopCard: { gap: 8, padding: 10, borderRadius: 16 },
+  shopCardRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  shopInfo: { flex: 1, minWidth: 0, gap: 2 },
+  shopTitle: { fontSize: 16, lineHeight: 20, fontWeight: '800', color: colors.ink, flexShrink: 1 },
+  shopType: { color: colors.muted, fontWeight: '600', fontSize: 13 },
+  shopMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 2 },
+  shopMetaText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  shopMetaDot: { color: '#cbd5e1', fontSize: 10, fontWeight: '900' },
+  shopSecondary: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
   productCard: { width: 126, gap: 8, padding: 10, position: 'relative' },
   productListCard: { padding: 10 },
   productListRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   productListInfo: { flex: 1, flexDirection: 'row', gap: 10, alignItems: 'center' },
   shopThumb: {
-    width: 76,
-    height: 76,
+    width: 70,
+    height: 70,
     borderRadius: 12,
     backgroundColor: '#ede9fe',
     overflow: 'hidden',
@@ -675,6 +695,8 @@ export const styles = StyleSheet.create({
   pill: { backgroundColor: '#f8fafc', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: colors.muted, fontSize: 11, fontWeight: '700' },
   badge: { minHeight: 24, maxHeight: 28, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, alignSelf: 'flex-start', justifyContent: 'center' },
   badgeText: { color: colors.ink, fontSize: 10, fontWeight: '800' },
+  miniStatusBadge: { minHeight: 26, borderRadius: 999, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  miniStatusText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
   greenBadge: { backgroundColor: '#dcfce7' },
   redBadge: { backgroundColor: '#fee2e2' },
   amberBadge: { backgroundColor: '#fef3c7' },
@@ -685,18 +707,18 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
-    padding: 10,
-    minHeight: 96,
+    padding: 9,
+    minHeight: 90,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7
+    gap: 6
   },
   activeCategoryCard: { borderColor: colors.primary, backgroundColor: '#f5f3ff' },
   categoryIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     backgroundColor: '#ede9fe',
     alignItems: 'center',
     justifyContent: 'center'
@@ -704,7 +726,7 @@ export const styles = StyleSheet.create({
   activeCategoryIcon: { backgroundColor: colors.primary },
   categoryIconText: { color: colors.primary, fontWeight: '900', fontSize: 18 },
   activeCategoryIconText: { color: '#fff' },
-  categoryTitle: { color: colors.ink, fontWeight: '800', fontSize: 11, textAlign: 'center', lineHeight: 14 },
+  categoryTitle: { color: colors.ink, fontWeight: '800', fontSize: 11, textAlign: 'center', lineHeight: 13 },
   categorySubtitle: { color: colors.muted, fontWeight: '600', fontSize: 9, textAlign: 'center' },
   iconBubble: {
     width: 42,
@@ -750,7 +772,7 @@ export const styles = StyleSheet.create({
   },
   locationActionText: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   searchShell: {
-    minHeight: 46,
+    minHeight: 44,
     borderRadius: 14,
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -760,8 +782,76 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8
   },
-  searchInput: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '500' },
+  searchInput: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '500', paddingVertical: 9 },
   searchClearButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  modeTabs: { flexDirection: 'row', gap: 8 },
+  modeTab: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 8
+  },
+  modeTabActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#F5F3FF',
+    shadowColor: colors.primary,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
+  },
+  modeTabText: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  modeTabTextActive: { color: colors.primary },
+  modeTabImage: { width: 24, height: 24, resizeMode: 'contain' },
+  modeCategoryList: { gap: 12, paddingRight: 4 },
+  modeCategoryCard: {
+    width: 86,
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 4
+  },
+  modeCategoryCardActive: { opacity: 1 },
+  modeCategoryIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: '#F3EEFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EDE9FE'
+  },
+  modeCategoryIconActive: { backgroundColor: '#F5F3FF', borderColor: colors.primary },
+  modeCategoryImage: { width: 42, height: 42, resizeMode: 'contain' },
+  modeCategoryTitle: { color: colors.ink, fontSize: 12, lineHeight: 15, fontWeight: '800', textAlign: 'center' },
+  homeFooterSections: { gap: 14, paddingBottom: 4 },
+  homeSectionBlock: { gap: 10 },
+  homeProductRail: { gap: 10, paddingRight: 4 },
+  searchHeader: { gap: 12 },
+  searchTitle: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: colors.ink },
+  filterChipRow: { gap: 8, paddingRight: 4 },
+  filterChip: {
+    minHeight: 36,
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  filterChipActive: { borderColor: colors.primary, backgroundColor: '#F5F3FF' },
+  filterChipText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  filterChipTextActive: { color: colors.primary },
+  countPill: { minHeight: 28, borderRadius: 999, backgroundColor: '#F5F3FF', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  countPillText: { color: colors.primary, fontSize: 11, fontWeight: '800' },
   fixedFooter: {
     position: 'absolute',
     left: 16,

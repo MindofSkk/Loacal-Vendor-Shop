@@ -1,19 +1,110 @@
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
-import { CategoryCard, CompactLocationHeader, EmptyState, Loader, ProductCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
-import { categories } from '../constants';
+import { CompactLocationHeader, EmptyState, Loader, ProductCard, ProductListCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+
+const MODE_STORAGE_KEY = 'lvm_customer_home_mode';
+const twemoji = (code) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`;
+
+const modeConfigs = [
+  {
+    key: 'food',
+    label: 'Food',
+    image: twemoji('1f354'),
+    businessType: 'Restaurant',
+    searchPlaceholder: 'Search for biryani, pizza, burger...',
+    categoryTitle: 'Food Categories',
+    shopTitle: 'Nearby Restaurants',
+    productTitle: 'Popular Dishes',
+    recommendedTitle: 'Recommended Restaurants',
+    recommendedKind: 'shops',
+    recommendedEmptyTitle: 'No more restaurants nearby',
+    recommendedEmptyMessage: 'Try changing your location or food category.',
+    matchingTitle: 'Matching Food',
+    noShopTitle: 'No restaurants found',
+    noProductTitle: 'No matching food items found',
+    categories: [
+      { label: 'Biryani', image: twemoji('1f35a'), keywords: ['biryani', 'main course'] },
+      { label: 'Pizza', image: twemoji('1f355'), keywords: ['pizza', 'snacks'] },
+      { label: 'Burger', image: twemoji('1f354'), keywords: ['burger', 'snacks'] },
+      { label: 'Snacks', image: twemoji('1f950'), keywords: ['snacks', 'starter'] },
+      { label: 'Drinks', image: twemoji('1f964'), keywords: ['drinks'] }
+    ]
+  },
+  {
+    key: 'grocery',
+    label: 'Grocery',
+    image: twemoji('1f9fa'),
+    businessType: 'Grocery / Kirana Store',
+    searchPlaceholder: 'Search for atta, haldi, oil, rice...',
+    categoryTitle: 'Grocery Categories',
+    shopTitle: 'Nearby Kirana Stores',
+    productTitle: 'Popular Essentials',
+    recommendedTitle: 'Recommended Grocery Products',
+    recommendedKind: 'products',
+    recommendedEmptyTitle: 'No more grocery products',
+    recommendedEmptyMessage: 'Try another grocery category or keyword.',
+    matchingTitle: 'Matching Grocery Products',
+    noShopTitle: 'No grocery shops found',
+    noProductTitle: 'No matching grocery products found',
+    categories: [
+      { label: 'Atta, Rice & Flour', image: twemoji('1f35a'), keywords: ['atta', 'rice', 'flour'] },
+      { label: 'Pulses & Dals', image: twemoji('1f963'), keywords: ['dal', 'pulses'] },
+      { label: 'Oils & Ghee', image: twemoji('1f95b'), keywords: ['oil', 'ghee'] },
+      { label: 'Masala & Spices', image: twemoji('1f336-fe0f'), keywords: ['masala', 'spice', 'haldi', 'turmeric'] },
+      { label: 'Packaged Food', image: twemoji('1f371'), keywords: ['snacks', 'packaged'] },
+      { label: 'Personal Care', image: twemoji('1f9fc'), keywords: ['personal care', 'soap', 'shampoo'] }
+    ]
+  },
+  {
+    key: 'dairy',
+    label: 'Dairy',
+    image: twemoji('1f95b'),
+    businessType: 'Dairy and Bakery',
+    searchPlaceholder: 'Search for milk, curd, bread, cake...',
+    categoryTitle: 'Fresh Categories',
+    shopTitle: 'Nearby Dairy & Bakery Stores',
+    productTitle: 'Fresh Picks',
+    recommendedTitle: 'Recommended Dairy & Bakery Items',
+    recommendedKind: 'products',
+    recommendedEmptyTitle: 'No more fresh items',
+    recommendedEmptyMessage: 'Try another dairy or bakery category.',
+    matchingTitle: 'Matching Dairy & Bakery Products',
+    noShopTitle: 'No dairy or bakery shops found',
+    noProductTitle: 'No matching dairy or bakery products found',
+    categories: [
+      { label: 'Milk', image: twemoji('1f95b'), keywords: ['milk', 'dairy'] },
+      { label: 'Curd', image: twemoji('1f963'), keywords: ['curd', 'dairy'] },
+      { label: 'Bread', image: twemoji('1f35e'), keywords: ['bread', 'bakery'] },
+      { label: 'Cake', image: twemoji('1f370'), keywords: ['cake', 'bakery'] },
+      { label: 'Paneer', image: twemoji('1f9c0'), keywords: ['paneer', 'dairy'] }
+    ]
+  }
+];
+
+const searchableProductText = (product) =>
+  `${product.name || ''} ${product.businessType || ''} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''} ${product.dairyBakeryType || ''} ${product.description || ''}`.toLowerCase();
+
+const matchesModeCategory = (product, category) => {
+  if (!category) return true;
+  const text = searchableProductText(product);
+  return category.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+};
 
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
   const [allShops, setAllShops] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [activeMode, setActiveMode] = useState('grocery');
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
@@ -45,6 +136,18 @@ export default function HomeScreen({ navigation }) {
   }, [load]);
 
   useEffect(() => {
+    AsyncStorage.getItem(MODE_STORAGE_KEY)
+      .then((storedMode) => {
+        if (modeConfigs.some((mode) => mode.key === storedMode)) setActiveMode(storedMode);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem(MODE_STORAGE_KEY, activeMode).catch(() => {});
+  }, [activeMode]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search.trim().toLowerCase());
     }, 300);
@@ -52,25 +155,33 @@ export default function HomeScreen({ navigation }) {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const activeConfig = useMemo(() => modeConfigs.find((mode) => mode.key === activeMode) || modeConfigs[0], [activeMode]);
+
+  const selectMode = useCallback((modeKey) => {
+    setActiveMode(modeKey);
+    setSelectedCategory(null);
+    setSearch('');
+    setDebouncedSearch('');
+  }, []);
+
   const filteredShops = useMemo(() => {
     return allShops
-      .filter((shop) => (selectedCategory ? shop.businessType === selectedCategory : true))
+      .filter((shop) => shop.businessType === activeConfig.businessType)
       .filter((shop) => {
         if (!debouncedSearch) return true;
         return `${shop.name || ''} ${shop.businessType || ''} ${shop.location?.area || ''} ${shop.location?.city || ''}`.toLowerCase().includes(debouncedSearch);
       });
-  }, [allShops, debouncedSearch, selectedCategory]);
+  }, [activeConfig.businessType, allShops, debouncedSearch]);
 
   const filteredProducts = useMemo(() => {
     return allProducts
-      .filter((product) => (selectedCategory ? product.businessType === selectedCategory : true))
+      .filter((product) => product.businessType === activeConfig.businessType)
+      .filter((product) => matchesModeCategory(product, selectedCategory))
       .filter((product) => {
         if (!debouncedSearch) return true;
-        return `${product.name || ''} ${product.businessType || ''} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''} ${product.dairyBakeryType || ''}`
-          .toLowerCase()
-          .includes(debouncedSearch);
+        return searchableProductText(product).includes(debouncedSearch);
       });
-  }, [allProducts, debouncedSearch, selectedCategory]);
+  }, [activeConfig.businessType, allProducts, debouncedSearch, selectedCategory]);
 
   const captureLocation = useCallback(async () => {
     setLocationLoading(true);
@@ -109,90 +220,143 @@ export default function HomeScreen({ navigation }) {
     }
   }, [addItem, navigation, showToast]);
 
+  const openProfile = useCallback(() => {
+    navigation.getParent()?.navigate('Profile');
+  }, [navigation]);
+
   const hasSearch = Boolean(debouncedSearch);
   const noSearchResults = hasSearch && filteredShops.length === 0 && filteredProducts.length === 0;
 
   const headerComponent = useMemo(() => (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: 12 }}>
       <CompactLocationHeader
         greeting="Hello, SkK!"
         addressText={location ? 'Current location selected' : 'nagri, Ranchi, 835303'}
         loading={locationLoading}
         onPressLocation={captureLocation}
+        onPressNotifications={() => showToast({ type: 'info', message: 'Notifications coming soon.' })}
+        onPressProfile={openProfile}
       />
       {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
+
+      <View style={styles.modeTabs}>
+        {modeConfigs.map((mode) => {
+          const active = activeMode === mode.key;
+          return (
+            <Pressable key={mode.key} onPress={() => selectMode(mode.key)} style={({ pressed }) => [styles.modeTab, active ? styles.modeTabActive : null, pressed ? styles.pressed : null]}>
+              <Image source={{ uri: mode.image }} style={styles.modeTabImage} />
+              <Text style={[styles.modeTabText, active ? styles.modeTabTextActive : null]} numberOfLines={1}>{mode.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <SearchBar
         value={search}
         onChangeText={setSearch}
         onClear={() => setSearch('')}
         onVoicePress={() => showToast({ type: 'info', message: 'Keyboard opened. Tap the keyboard mic and speak to search.' })}
+        placeholder={activeConfig.searchPlaceholder}
       />
 
-      <View style={{ gap: 10 }}>
-        <SectionHeader title="Categories" action="See all" onAction={() => setSelectedCategory('')} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          {categories.map((category) => (
-            <CategoryCard
-              key={category}
-              title={category}
-              subtitle={category === 'Restaurant' ? 'Food' : category.includes('Grocery') ? 'Kirana' : 'Fresh'}
-              active={selectedCategory === category}
-              onPress={() => setSelectedCategory(category)}
-            />
-          ))}
-        </View>
+      <View style={{ gap: 9 }}>
+        <SectionHeader title={activeConfig.categoryTitle} action={selectedCategory ? 'Clear' : 'See all'} onAction={() => setSelectedCategory(null)} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeCategoryList}>
+          {activeConfig.categories.map((category) => {
+            const active = selectedCategory?.label === category.label;
+            return (
+              <Pressable key={category.label} onPress={() => setSelectedCategory(active ? null : category)} style={({ pressed }) => [styles.modeCategoryCard, active ? styles.modeCategoryCardActive : null, pressed ? styles.pressed : null]}>
+                <View style={[styles.modeCategoryIcon, active ? styles.modeCategoryIconActive : null]}>
+                  <Image source={{ uri: category.image }} style={styles.modeCategoryImage} />
+                </View>
+                <Text style={styles.modeCategoryTitle} numberOfLines={2}>{category.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {noSearchResults ? (
-        <EmptyState title="No shops or products found" message="Try another shop, product, or category name." />
+        <EmptyState title={activeConfig.noShopTitle} message={activeConfig.noProductTitle} />
       ) : (
-        <SectionHeader title="Nearby Shops" action="View all" onAction={() => setSelectedCategory('')} />
+        <SectionHeader title={activeConfig.shopTitle} action="View all" onAction={() => setSelectedCategory(null)} />
       )}
     </View>
-  ), [captureLocation, debouncedSearch, filteredProducts.length, filteredShops.length, location, locationError, locationLoading, noSearchResults, search, selectedCategory, showToast]);
+  ), [activeConfig, activeMode, captureLocation, filteredProducts.length, filteredShops.length, location, locationError, locationLoading, noSearchResults, openProfile, search, selectMode, selectedCategory, showToast]);
 
   const footerComponent = useMemo(() => {
     if (noSearchResults) return null;
+    const popularProducts = filteredProducts.slice(0, 12);
+    const recommendedProducts = filteredProducts.length > 4 ? filteredProducts.slice(4, 10) : filteredProducts.slice(0, 4);
+    const recommendedShops = filteredShops.slice(0, 3);
 
     return (
-      <View style={{ gap: 14 }}>
-        <SectionHeader title={hasSearch ? 'Matching Products' : 'Bestsellers'} action="See all" />
-        {filteredProducts.length === 0 ? (
-          <EmptyState title="No products found" message="Try another category or search term." />
+      <View style={styles.homeFooterSections}>
+        {popularProducts.length > 0 ? (
+          <View style={styles.homeSectionBlock}>
+            <SectionHeader title={hasSearch ? activeConfig.matchingTitle : activeConfig.productTitle} action="See all" />
+            <FlatList
+              horizontal
+              data={popularProducts}
+              keyExtractor={(product) => product._id}
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.homeProductRail}
+              renderItem={({ item: product }) => (
+                <ProductCard
+                  product={product}
+                  onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+                  onAdd={() => addToCart(product)}
+                />
+              )}
+            />
+          </View>
         ) : (
-          <FlatList
-            horizontal
-            data={filteredProducts.slice(0, 12)}
-            keyExtractor={(product) => product._id}
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 10, paddingRight: 4 }}
-            renderItem={({ item: product }) => (
-              <ProductCard
+          <EmptyState title={activeConfig.noProductTitle} message="Try another category or search term." />
+        )}
+
+        {activeConfig.recommendedKind === 'shops' ? (
+          recommendedShops.length > 0 ? (
+            <View style={styles.homeSectionBlock}>
+              <SectionHeader title={activeConfig.recommendedTitle} action="View all" />
+              {recommendedShops.map((shop) => (
+                <ShopCard key={`recommended-${shop._id}`} shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />
+              ))}
+            </View>
+          ) : (
+            <EmptyState title={activeConfig.recommendedEmptyTitle} message={activeConfig.recommendedEmptyMessage} />
+          )
+        ) : recommendedProducts.length > 0 ? (
+          <View style={styles.homeSectionBlock}>
+            <SectionHeader title={activeConfig.recommendedTitle} action="See all" />
+            {recommendedProducts.map((product) => (
+              <ProductListCard
+                key={`recommended-${product._id}`}
                 product={product}
                 onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
                 onAdd={() => addToCart(product)}
               />
-            )}
-          />
+            ))}
+          </View>
+        ) : (
+          <EmptyState title={activeConfig.recommendedEmptyTitle} message={activeConfig.recommendedEmptyMessage} />
         )}
       </View>
     );
-  }, [addToCart, filteredProducts, hasSearch, navigation, noSearchResults]);
+  }, [activeConfig, addToCart, filteredProducts, filteredShops, hasSearch, navigation, noSearchResults]);
 
   if (initialLoading) return <Loader />;
 
   return (
     <FlatList
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top + 8, 16) }]}
       data={noSearchResults ? [] : filteredShops}
       keyExtractor={(shop) => shop._id}
       keyboardShouldPersistTaps="always"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
       ListHeaderComponent={headerComponent}
-      ListEmptyComponent={!noSearchResults ? <EmptyState title="No shops found" message="Try another category or run the quick setup seed." /> : null}
+      ListEmptyComponent={!noSearchResults ? <EmptyState title={activeConfig.noShopTitle} message="Try another mode, category, or run the quick setup seed." /> : null}
       ListFooterComponent={footerComponent}
       renderItem={({ item: shop }) => <ShopCard shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />}
     />
