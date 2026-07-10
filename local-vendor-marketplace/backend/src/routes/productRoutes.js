@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { MAX_PRODUCT_IMAGES } from '../models/Product.js';
 import {
   createProduct,
   deleteProduct,
@@ -20,7 +21,7 @@ router.post(
   '/',
   protect,
   authorize('seller'),
-  upload.array('images', 5),
+  upload.array('images', MAX_PRODUCT_IMAGES),
   createProductValidator,
   validate,
   createProduct
@@ -30,7 +31,7 @@ router.patch(
   '/:id',
   protect,
   authorize('seller'),
-  upload.array('images', 5),
+  upload.array('images', MAX_PRODUCT_IMAGES),
   updateProductValidator,
   validate,
   updateProduct

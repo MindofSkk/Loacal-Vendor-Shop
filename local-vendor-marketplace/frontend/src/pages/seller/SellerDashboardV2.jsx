@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, productApi, shopApi } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
+import { getProductImages, getProductThumbnail } from '../../utils/productImages';
 
 const orderStatuses = ['Accepted', 'Packed', 'Out for Delivery', 'Delivered', 'Cancelled', 'Rejected'];
 const businessTypes = ['Restaurant', 'Grocery / Kirana Store', 'Dairy and Bakery'];
@@ -30,6 +31,8 @@ const emptyProductForm = {
   groceryCategory: 'Other',
   dairyBakeryType: 'Dairy',
   freshStockToday: 'true',
+  thumbnailIndex: '0',
+  existingImages: [],
   images: null
 };
 
@@ -309,18 +312,23 @@ export default function SellerDashboardV2() {
     setActionLoading('save-product');
 
     try {
+      const selectedImages = Array.from(productForm.images || []);
+      if (selectedImages.length > 3) {
+        throw new Error('You can upload a maximum of 3 product images.');
+      }
+
       const formData = new FormData();
       const activeBusinessType = shop?.businessType || shopForm.businessType;
 
       Object.entries(productForm).forEach(([key, value]) => {
-        if (key !== 'images' && value !== '') formData.append(key, value);
+        if (!['images', 'existingImages'].includes(key) && value !== '') formData.append(key, value);
       });
 
       if (activeBusinessType !== 'Grocery / Kirana Store') {
         formData.delete('stock');
       }
 
-      Array.from(productForm.images || []).forEach((file) => formData.append('images', file));
+      selectedImages.forEach((file) => formData.append('images', file));
       if (editingProductId) {
         await productApi.update(editingProductId, formData);
       } else {
@@ -372,6 +380,8 @@ export default function SellerDashboardV2() {
       groceryCategory: product.groceryCategory || 'Other',
       dairyBakeryType: product.dairyBakeryType || 'Dairy',
       freshStockToday: product.freshStockToday ? 'true' : 'false',
+      thumbnailIndex: String(Math.min(Number(product.thumbnailIndex || 0), 2)),
+      existingImages: product.images || [],
       images: null
     });
   };
@@ -402,6 +412,10 @@ export default function SellerDashboardV2() {
   };
 
   const activeBusinessType = shop?.businessType || shopForm.businessType;
+  const selectedProductImages = Array.from(productForm.images || []);
+  const thumbnailOptions = selectedProductImages.length
+    ? selectedProductImages.map((file, index) => ({ index, label: file.name, url: '' }))
+    : getProductImages({ images: productForm.existingImages }).map((url, index) => ({ index, label: `Image ${index + 1}`, url }));
   const visibleProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
     if (!q) return products;
@@ -827,7 +841,46 @@ export default function SellerDashboardV2() {
               <option value="active">Available</option>
               <option value="inactive">Not Available</option>
             </select>
-            <input className="field" type="file" accept="image/*" multiple onChange={(event) => setProductForm({ ...productForm, images: event.target.files })} />
+            <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+              <label className="label">Product images (max 3)</label>
+              <input
+                className="field bg-white"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || []);
+                  if (files.length > 3) {
+                    setError('You can upload a maximum of 3 product images.');
+                    event.target.value = '';
+                    return;
+                  }
+                  setError('');
+                  setProductForm({ ...productForm, images: event.target.files, thumbnailIndex: '0' });
+                }}
+              />
+              {editingProductId && !selectedProductImages.length && productForm.existingImages.length > 0 && (
+                <p className="text-xs font-semibold text-stone-500">Choose new images to replace current images, or select a current thumbnail below.</p>
+              )}
+              {thumbnailOptions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-stone-600">Thumbnail image</p>
+                  {thumbnailOptions.slice(0, 3).map((image) => (
+                    <label key={`${image.label}-${image.index}`} className="flex cursor-pointer items-center gap-2 rounded-lg bg-white p-2 text-sm font-semibold text-stone-700">
+                      <input
+                        type="radio"
+                        name="thumbnailIndex"
+                        value={image.index}
+                        checked={String(productForm.thumbnailIndex) === String(image.index)}
+                        onChange={(event) => setProductForm({ ...productForm, thumbnailIndex: event.target.value })}
+                      />
+                      {image.url && <img className="h-10 w-10 rounded-md object-cover" src={image.url} alt={image.label} />}
+                      <span className="truncate">{image.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <button className="btn-primary w-full" type="submit" disabled={actionLoading === 'save-product'}>
               {editingProductId ? <Save className="h-4 w-4" /> : <PackagePlus className="h-4 w-4" />}
               {actionLoading === 'save-product' ? 'Saving...' : editingProductId ? 'Update product' : 'Add product'}
@@ -845,11 +898,15 @@ export default function SellerDashboardV2() {
               value={productSearch}
               onChange={(event) => setProductSearch(event.target.value)}
             />
-            {visibleProducts.map((product) => (
+            {visibleProducts.map((product) => {
+              const thumbnail = getProductThumbnail(product);
+              const productImages = getProductImages(product);
+
+              return (
               <article key={product._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100 text-sm font-bold text-stone-500">
-                    {product.images?.[0]?.url ? <img className="h-full w-full object-cover" src={product.images[0].url} alt={product.name} /> : 'Image'}
+                    {thumbnail ? <img className="h-full w-full object-cover" src={thumbnail} alt={product.name} /> : 'Image'}
                   </div>
                   <div>
                   <div className="flex items-center gap-2">
@@ -861,6 +918,13 @@ export default function SellerDashboardV2() {
                     {product.businessType === 'Grocery / Kirana Store' ? ` | Stock ${product.stock}` : ''}
                     {product.packSize ? ` | ${product.packSize}` : ''}
                   </p>
+                  {productImages.length > 1 && (
+                    <div className="mt-2 flex gap-1.5">
+                      {productImages.slice(0, 3).map((url) => (
+                        <img key={url} className="h-8 w-8 rounded-md border border-stone-200 object-cover" src={url} alt={product.name} />
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -874,7 +938,8 @@ export default function SellerDashboardV2() {
                   </button>
                 </div>
               </article>
-            ))}
+              );
+            })}
             {visibleProducts.length === 0 && <p className="panel text-stone-600">No products found.</p>}
           </div>
         </div>

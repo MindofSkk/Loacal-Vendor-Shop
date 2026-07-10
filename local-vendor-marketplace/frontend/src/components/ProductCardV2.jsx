@@ -2,6 +2,7 @@ import { Package, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { getProductThumbnail } from '../utils/productImages';
 
 const isOrderable = (product) => {
   if (product.status !== 'active') return false;
@@ -37,7 +38,7 @@ const isShopOpenNow = (shop) => {
 export default function ProductCardV2({ product }) {
   const { addItem } = useCart();
   const [error, setError] = useState('');
-  const image = product.images?.[0]?.url;
+  const image = getProductThumbnail(product);
   const orderable = isOrderable(product);
 
   const handleAdd = () => {

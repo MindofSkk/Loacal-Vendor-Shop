@@ -14,7 +14,8 @@ export const createProductValidator = [
   body('foodCategory').optional().isIn(FOOD_CATEGORIES).withMessage('Invalid food category'),
   body('groceryCategory').optional().isIn(GROCERY_CATEGORIES).withMessage('Invalid grocery category'),
   body('dairyBakeryType').optional().isIn(['Dairy', 'Bakery']).withMessage('Type must be Dairy or Bakery'),
-  body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false')
+  body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false'),
+  body('thumbnailIndex').optional().isInt({ min: 0, max: 2 }).withMessage('Thumbnail must be one of the uploaded images')
 ];
 
 export const updateProductValidator = [
@@ -30,5 +31,6 @@ export const updateProductValidator = [
   body('foodCategory').optional().isIn(FOOD_CATEGORIES).withMessage('Invalid food category'),
   body('groceryCategory').optional().isIn(GROCERY_CATEGORIES).withMessage('Invalid grocery category'),
   body('dairyBakeryType').optional().isIn(['Dairy', 'Bakery']).withMessage('Type must be Dairy or Bakery'),
-  body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false')
+  body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false'),
+  body('thumbnailIndex').optional().isInt({ min: 0, max: 2 }).withMessage('Thumbnail must be one of the uploaded images')
 ];

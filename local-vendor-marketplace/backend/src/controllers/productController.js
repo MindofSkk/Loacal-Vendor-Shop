@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { cloudinary, configureCloudinary } from '../config/cloudinary.js';
-import { Product } from '../models/Product.js';
+import { MAX_PRODUCT_IMAGES, Product } from '../models/Product.js';
 import { Shop } from '../models/Shop.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -36,6 +36,16 @@ const getApprovedSellerShop = async (sellerId) => {
 };
 
 const toBoolean = (value) => value === true || value === 'true' || value === 'Yes';
+
+const limitProductImages = (images = []) => images.slice(0, MAX_PRODUCT_IMAGES);
+
+const normalizeThumbnailIndex = (value, imageCount) => {
+  const parsed = Number.parseInt(value, 10);
+  const maxIndex = Math.max(Math.min(imageCount, MAX_PRODUCT_IMAGES) - 1, 0);
+
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, maxIndex);
+};
 
 const normalizeProductPayload = (body, shop) => {
   const payload = {
@@ -124,6 +134,10 @@ export const createProduct = asyncHandler(async (req, res) => {
   const shop = await getApprovedSellerShop(req.user._id);
   const images = [];
 
+  if (req.files?.length > MAX_PRODUCT_IMAGES) {
+    throw new ApiError(400, `You can upload up to ${MAX_PRODUCT_IMAGES} product images`);
+  }
+
   if (req.files?.length) {
     if (!configureCloudinary()) {
       throw new ApiError(500, 'Cloudinary is not configured');
@@ -135,7 +149,8 @@ export const createProduct = asyncHandler(async (req, res) => {
     ...normalizeProductPayload(req.body, shop),
     seller: req.user._id,
     shop: shop._id,
-    images
+    images: limitProductImages(images),
+    thumbnailIndex: normalizeThumbnailIndex(req.body.thumbnailIndex, images.length)
   });
 
   res.status(201).json(product);
@@ -153,12 +168,20 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   Object.assign(product, update);
 
+  if (req.files?.length > MAX_PRODUCT_IMAGES) {
+    throw new ApiError(400, `You can upload up to ${MAX_PRODUCT_IMAGES} product images`);
+  }
+
   if (req.files?.length) {
     if (!configureCloudinary()) {
       throw new ApiError(500, 'Cloudinary is not configured');
     }
-    product.images.push(...(await Promise.all(req.files.map(uploadBufferToCloudinary))));
+    product.images = limitProductImages(await Promise.all(req.files.map(uploadBufferToCloudinary)));
+  } else {
+    product.images = limitProductImages(product.images);
   }
+
+  product.thumbnailIndex = normalizeThumbnailIndex(req.body.thumbnailIndex ?? product.thumbnailIndex, product.images.length);
 
   await product.save();
   res.json(product);

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { productApi } from '../../api/services';
 import { useCart } from '../../context/CartContext';
+import { getProductImages, getProductThumbnail } from '../../utils/productImages';
 
 const isOrderable = (product) => {
   if (product.status !== 'active') return false;
@@ -52,7 +53,8 @@ export default function ProductDetailsV2() {
   if (loading) return <div className="panel">Loading...</div>;
   if (!product) return <div className="panel">Product not found.</div>;
 
-  const image = product.images?.[0]?.url;
+  const image = getProductThumbnail(product);
+  const galleryImages = getProductImages(product);
   const orderable = isOrderable(product);
   const handleAdd = () => {
     const result = addItem(product);
@@ -61,8 +63,19 @@ export default function ProductDetailsV2() {
 
   return (
     <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-white">
-        {image ? <img src={image} alt={product.name} className="h-full w-full object-cover" /> : <Package className="h-20 w-20 text-stone-400" />}
+      <div className="space-y-3">
+        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg bg-white">
+          {image ? <img src={image} alt={product.name} className="h-full w-full object-cover" /> : <Package className="h-20 w-20 text-stone-400" />}
+        </div>
+        {galleryImages.length > 1 && (
+          <div className="flex gap-2">
+            {galleryImages.slice(0, 3).map((url) => (
+              <div key={url} className="h-16 w-16 overflow-hidden rounded-lg border border-stone-200 bg-white">
+                <img src={url} alt={product.name} className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="panel space-y-4">
         <Link to="/" className="inline-flex items-center gap-2 text-sm font-bold text-market-leaf">

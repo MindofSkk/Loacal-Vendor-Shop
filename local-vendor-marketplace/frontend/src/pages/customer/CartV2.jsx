@@ -5,6 +5,7 @@ import { getApiError } from '../../api/client';
 import { orderApi } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { getProductThumbnail } from '../../utils/productImages';
 
 const minutesFromTime = (time) => {
   const [hours, minutes] = String(time || '00:00')
@@ -124,11 +125,14 @@ export default function CartV2() {
     <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
       <div className="space-y-3">
         <h1 className="text-2xl font-black">Cart</h1>
-        {items.map((item) => (
+        {items.map((item) => {
+          const image = getProductThumbnail(item);
+
+          return (
           <article key={item._id} className="panel flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-violet-50 text-xs font-bold text-violet-700">
-              {item.images?.[0]?.url ? (
-                <img className="h-full w-full object-cover" src={item.images[0].url} alt={item.name} />
+              {image ? (
+                <img className="h-full w-full object-cover" src={image} alt={item.name} />
               ) : (
                 'Image'
               )}
@@ -150,7 +154,8 @@ export default function CartV2() {
               </button>
             </div>
           </article>
-        ))}
+          );
+        })}
         {items.length === 0 && <p className="panel text-stone-600">Your cart is empty.</p>}
       </div>
       <form className="panel h-fit space-y-3" onSubmit={placeOrder}>

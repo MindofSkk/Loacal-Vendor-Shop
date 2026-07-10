@@ -3,6 +3,7 @@ import { BUSINESS_TYPES } from './Shop.js';
 
 export const FOOD_CATEGORIES = ['Starter', 'Main Course', 'Snacks', 'Drinks', 'Dessert'];
 export const GROCERY_CATEGORIES = ['Rice', 'Oil', 'Snacks', 'Cold Drinks', 'Household', 'Personal Care', 'Other'];
+export const MAX_PRODUCT_IMAGES = 3;
 
 const imageSchema = new mongoose.Schema(
   {
@@ -86,7 +87,21 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    images: [imageSchema],
+    images: {
+      type: [imageSchema],
+      validate: {
+        validator(images) {
+          return images.length <= MAX_PRODUCT_IMAGES;
+        },
+        message: `A product can have a maximum of ${MAX_PRODUCT_IMAGES} images`
+      }
+    },
+    thumbnailIndex: {
+      type: Number,
+      min: 0,
+      max: MAX_PRODUCT_IMAGES - 1,
+      default: 0
+    },
     isDemoProduct: {
       type: Boolean,
       default: false,
@@ -106,7 +121,19 @@ productSchema.virtual('isAvailable').get(function isAvailable() {
   return this.status === 'active' && this.stock > 0;
 });
 
-productSchema.set('toJSON', { virtuals: true });
+productSchema.virtual('thumbnailImage').get(function thumbnailImage() {
+  return this.images?.[this.thumbnailIndex] || this.images?.[0] || null;
+});
+
+productSchema.set('toJSON', {
+  virtuals: true,
+  transform(_doc, ret) {
+    ret.images = ret.images?.slice(0, MAX_PRODUCT_IMAGES) || [];
+    if (ret.thumbnailIndex >= ret.images.length) ret.thumbnailIndex = 0;
+    ret.thumbnailImage = ret.images[ret.thumbnailIndex] || ret.images[0] || null;
+    return ret;
+  }
+});
 productSchema.index({ name: 'text', description: 'text' });
 
 export const Product = mongoose.model('Product', productSchema);

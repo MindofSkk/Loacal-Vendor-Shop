@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants';
+import { getProductThumbnail } from '../utils/productImages';
 
 const radius = {
   sm: 12,
@@ -156,7 +157,7 @@ export function CartPreviewBar({ items, subtotal, quantity, onPress }) {
     <Pressable onPress={onPress} style={({ pressed }) => [styles.cartPreviewBar, pressed ? styles.pressed : null]}>
       <View style={styles.cartPreviewImages}>
         {previewItems.map((item, index) => {
-          const image = item.images?.[0]?.url;
+          const image = getProductThumbnail(item);
           return (
             <View key={`${item._id}-${index}`} style={[styles.cartPreviewThumb, { marginLeft: index === 0 ? 0 : -10 }]}>
               {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={16} color={colors.primary} />}
@@ -385,7 +386,7 @@ export function ShopCard({ shop, onPress }) {
 }
 
 export function ProductCard({ product, onPress, onAdd }) {
-  const image = product.images?.[0]?.url;
+  const image = getProductThumbnail(product);
   const available = product.status !== 'inactive';
 
   return (
@@ -409,7 +410,7 @@ export function ProductCard({ product, onPress, onAdd }) {
 }
 
 export function ProductListCard({ product, onPress, onAdd, disabled, quantity = 0, onMinus, onPlus }) {
-  const image = product.images?.[0]?.url;
+  const image = getProductThumbnail(product);
   const unavailable = disabled || product.status === 'inactive';
   const meta = product.brand || product.foodCategory || product.groceryCategory || product.dairyBakeryType || product.shop?.name;
 
@@ -445,7 +446,7 @@ export function ProductListCard({ product, onPress, onAdd, disabled, quantity = 
 }
 
 export function CartItemCard({ item, onMinus, onPlus, onRemove }) {
-  const image = item.images?.[0]?.url;
+  const image = getProductThumbnail(item);
 
   return (
     <Card style={{ gap: 12 }}>

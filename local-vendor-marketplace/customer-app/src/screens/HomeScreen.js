@@ -38,7 +38,7 @@ export default function HomeScreen({ navigation }) {
       setRefreshing(false);
       setInitialLoading(false);
     }
-  }, [location, selectedCategory]);
+  }, [location, showToast]);
 
   useEffect(() => {
     load();
@@ -72,7 +72,7 @@ export default function HomeScreen({ navigation }) {
       });
   }, [allProducts, debouncedSearch, selectedCategory]);
 
-  const captureLocation = async () => {
+  const captureLocation = useCallback(async () => {
     setLocationLoading(true);
     setLocationError('');
     try {
@@ -93,9 +93,9 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setLocationLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const addToCart = (product) => {
+  const addToCart = useCallback((product) => {
     try {
       addItem(product);
       showToast({
@@ -107,12 +107,12 @@ export default function HomeScreen({ navigation }) {
     } catch (err) {
       showToast({ type: 'error', message: err.message });
     }
-  };
+  }, [addItem, navigation, showToast]);
 
   const hasSearch = Boolean(debouncedSearch);
   const noSearchResults = hasSearch && filteredShops.length === 0 && filteredProducts.length === 0;
 
-  const renderHeader = () => (
+  const headerComponent = useMemo(() => (
     <View style={{ gap: 14 }}>
       <CompactLocationHeader
         greeting="Hello, SkK!"
@@ -150,9 +150,9 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title="Nearby Shops" action="View all" onAction={() => setSelectedCategory('')} />
       )}
     </View>
-  );
+  ), [captureLocation, debouncedSearch, filteredProducts.length, filteredShops.length, location, locationError, locationLoading, noSearchResults, search, selectedCategory, showToast]);
 
-  const renderFooter = () => {
+  const footerComponent = useMemo(() => {
     if (noSearchResults) return null;
 
     return (
@@ -179,7 +179,7 @@ export default function HomeScreen({ navigation }) {
         )}
       </View>
     );
-  };
+  }, [addToCart, filteredProducts, hasSearch, navigation, noSearchResults]);
 
   if (initialLoading) return <Loader />;
 
@@ -189,11 +189,11 @@ export default function HomeScreen({ navigation }) {
       contentContainerStyle={styles.content}
       data={noSearchResults ? [] : filteredShops}
       keyExtractor={(shop) => shop._id}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={headerComponent}
       ListEmptyComponent={!noSearchResults ? <EmptyState title="No shops found" message="Try another category or run the quick setup seed." /> : null}
-      ListFooterComponent={renderFooter}
+      ListFooterComponent={footerComponent}
       renderItem={({ item: shop }) => <ShopCard shop={shop} onPress={() => navigation.navigate('ShopDetails', { shopId: shop._id })} />}
     />
   );

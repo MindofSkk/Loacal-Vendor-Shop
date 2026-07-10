@@ -1,6 +1,7 @@
 import { ActivityIndicator, Image, Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants';
+import { getProductThumbnail } from '../utils/productImages';
 
 const radius = {
   sm: 12,
@@ -188,7 +189,7 @@ export function MetricCard({ label, value, tone = 'green', icon = 'stats-chart-o
 }
 
 export function ProductRow({ product, onEdit, onDelete }) {
-  const image = product.images?.[0]?.url;
+  const image = getProductThumbnail(product);
   const available = product.status !== 'inactive';
 
   return (

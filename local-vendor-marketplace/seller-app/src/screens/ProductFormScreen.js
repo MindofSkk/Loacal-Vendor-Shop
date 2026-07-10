@@ -1,11 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
 import { Button, Card, Input, OptionRow, styles } from '../components/ui';
 import { foodCategories, groceryCategories } from '../constants';
 import { useToast } from '../context/ToastContext';
+import { getProductImages } from '../utils/productImages';
 
 const emptyForm = {
   name: '',
@@ -26,9 +27,14 @@ export default function ProductFormScreen({ route, navigation }) {
   const { showToast } = useToast();
   const { shop, product } = route.params || {};
   const businessType = shop?.businessType || product?.businessType || 'Restaurant';
-  const [image, setImage] = useState(null);
+  const [images, setImages] = useState([]);
+  const [thumbnailIndex, setThumbnailIndex] = useState(String(Math.min(Number(product?.thumbnailIndex || 0), 2)));
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const existingImages = getProductImages(product);
+  const thumbnailOptions = images.length
+    ? images.map((asset, index) => ({ index, uri: asset.uri, label: `New image ${index + 1}` }))
+    : existingImages.map((uri, index) => ({ index, uri, label: `Image ${index + 1}` }));
   const [form, setForm] = useState({
     ...emptyForm,
     ...product,
@@ -37,7 +43,7 @@ export default function ProductFormScreen({ route, navigation }) {
     freshStockToday: product?.freshStockToday == null ? true : Boolean(product.freshStockToday)
   });
 
-  const pickImage = async () => {
+  const pickImages = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permission.status !== 'granted') {
       showToast({ type: 'warning', message: 'Photo permission is required to upload product images.' });
@@ -45,21 +51,29 @@ export default function ProductFormScreen({ route, navigation }) {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: 3,
       quality: 0.8
     });
     if (!result.canceled) {
-      setImage(result.assets[0]);
+      const nextImages = result.assets.slice(0, 3);
+      setImages(nextImages);
+      setThumbnailIndex('0');
+      if (result.assets.length > 3) {
+        showToast({ type: 'warning', message: 'Only first 3 images will be used.' });
+      }
     }
   };
 
-  const appendImage = (formData) => {
-    if (!image) return;
-    const uriParts = image.uri.split('.');
-    const extension = uriParts[uriParts.length - 1] || 'jpg';
-    formData.append('images', {
-      uri: image.uri,
-      name: `product.${extension}`,
-      type: image.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`
+  const appendImages = (formData) => {
+    images.forEach((image, index) => {
+      const uriParts = image.uri.split('.');
+      const extension = uriParts[uriParts.length - 1] || 'jpg';
+      formData.append('images', {
+        uri: image.uri,
+        name: `product-${index + 1}.${extension}`,
+        type: image.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`
+      });
     });
   };
 
@@ -74,15 +88,17 @@ export default function ProductFormScreen({ route, navigation }) {
     setSaving(true);
     try {
       const formData = new FormData();
+      const excludedFields = new Set(['_id', 'id', '__v', 'images', 'thumbnailImage', 'shop', 'seller', 'category', 'businessType', 'createdAt', 'updatedAt', 'isAvailable']);
       Object.entries(form).forEach(([key, value]) => {
         if (key === 'stock' && businessType !== 'Grocery / Kirana Store') {
           return;
         }
-        if (value !== '' && value != null && key !== '_id' && key !== 'images' && key !== 'shop') {
+        if (value !== '' && value != null && !excludedFields.has(key)) {
           formData.append(key, typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value));
         }
       });
-      appendImage(formData);
+      formData.append('thumbnailIndex', thumbnailIndex);
+      appendImages(formData);
 
       if (product?._id) {
         await productApi.update(product._id, formData);
@@ -145,9 +161,32 @@ export default function ProductFormScreen({ route, navigation }) {
 
         <Text style={styles.label}>Availability</Text>
         <OptionRow options={['active', 'inactive']} value={form.status} onChange={(status) => setForm({ ...form, status })} />
-        {image ? <Image source={{ uri: image.uri }} style={{ height: 180, borderRadius: 16 }} /> : null}
+        {thumbnailOptions.length ? (
+          <View style={{ gap: 10 }}>
+            <Text style={styles.label}>Thumbnail image</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {thumbnailOptions.slice(0, 3).map((option) => (
+                <Pressable
+                  key={`${option.label}-${option.index}`}
+                  onPress={() => setThumbnailIndex(String(option.index))}
+                  style={{
+                    width: 82,
+                    gap: 6,
+                    borderWidth: 2,
+                    borderColor: String(thumbnailIndex) === String(option.index) ? '#049B4F' : '#E5E7EB',
+                    borderRadius: 16,
+                    padding: 6
+                  }}
+                >
+                  <Image source={{ uri: option.uri }} style={{ height: 64, borderRadius: 12 }} />
+                  <Text style={styles.small} numberOfLines={1}>{String(thumbnailIndex) === String(option.index) ? 'Thumbnail' : option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
         <View style={styles.row}>
-          <Button title="Pick image" variant="secondary" onPress={pickImage} style={styles.flex} />
+          <Button title="Pick images" variant="secondary" onPress={pickImages} style={styles.flex} />
           <Button title="Save" loading={saving} onPress={save} style={styles.flex} />
         </View>
       </Card>

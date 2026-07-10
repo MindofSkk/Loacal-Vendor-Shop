@@ -1,26 +1,49 @@
-import { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
-import { AvailabilityIcon, Button, Card, FixedFooter, Loader, ProductTraitBadge, styles } from '../components/ui';
+import { AvailabilityIcon, Button, Card, Loader, ProductTraitBadge, styles } from '../components/ui';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import { getProductImages, getProductThumbnail } from '../utils/productImages';
 
 export default function ProductDetailsScreen({ route, navigation }) {
   const { productId } = route.params;
   const { addItem } = useCart();
   const { showToast } = useToast();
   const [product, setProduct] = useState(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const imageOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     productApi
       .get(productId)
-      .then(({ data }) => setProduct(data))
+      .then(({ data }) => {
+        setProduct(data);
+        setSelectedImageIndex(Math.min(Number(data.thumbnailIndex || 0), 2));
+      })
       .catch((err) => showToast({ type: 'error', message: getApiError(err) }))
       .finally(() => setLoading(false));
   }, [productId]);
+
+  const selectImage = (index) => {
+    if (index === selectedImageIndex) return;
+
+    Animated.timing(imageOpacity, {
+      toValue: 0.35,
+      duration: 110,
+      useNativeDriver: true
+    }).start(() => {
+      setSelectedImageIndex(index);
+      Animated.timing(imageOpacity, {
+        toValue: 1,
+        duration: 170,
+        useNativeDriver: true
+      }).start();
+    });
+  };
 
   const addToCart = () => {
     try {
@@ -38,19 +61,37 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   if (loading) return <Loader />;
 
-  const image = product?.images?.[0]?.url;
+  const galleryImages = getProductImages(product);
+  const image = galleryImages[selectedImageIndex] || getProductThumbnail(product);
   const unavailable = product?.status === 'inactive';
 
   return (
-    <View style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 120 }]}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: 28 }]}>
         {image ? (
-          <Image source={{ uri: image }} style={{ height: 260, borderRadius: 22, backgroundColor: '#ede9fe' }} />
+          <Animated.Image source={{ uri: image }} style={{ height: 260, borderRadius: 22, backgroundColor: '#ede9fe', opacity: imageOpacity }} />
         ) : (
           <View style={{ height: 220, borderRadius: 22, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="cube-outline" size={58} color="#5B2EEB" />
           </View>
         )}
+        {galleryImages.length > 1 ? (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {galleryImages.slice(0, 3).map((url, index) => (
+              <Pressable
+                key={url}
+                onPress={() => selectImage(index)}
+                style={{
+                  borderWidth: 2,
+                  borderColor: selectedImageIndex === index ? '#5B2EEB' : '#E5E7EB',
+                  borderRadius: 18,
+                  padding: 2
+                }}
+              >
+                <Image source={{ uri: url }} style={{ width: 68, height: 68, borderRadius: 14, backgroundColor: '#ede9fe' }} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <Card style={{ gap: 12 }}>
           <View style={styles.between}>
             <Text style={[styles.heading, { flex: 1 }]}>{product?.name}</Text>
@@ -67,10 +108,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
             {product?.packSize ? <Text style={styles.pill}>{product.packSize}</Text> : null}
           </View>
         </Card>
-      </ScrollView>
-      <FixedFooter>
-        <Button title={unavailable ? 'Unavailable' : 'Add to cart'} onPress={addToCart} disabled={unavailable} />
-      </FixedFooter>
-    </View>
+        <Card>
+          <Button title={unavailable ? 'Unavailable' : 'Add to cart'} onPress={addToCart} disabled={unavailable} />
+        </Card>
+    </ScrollView>
   );
 }
