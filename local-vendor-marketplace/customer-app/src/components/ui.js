@@ -852,6 +852,36 @@ export const styles = StyleSheet.create({
   filterChipTextActive: { color: colors.primary },
   countPill: { minHeight: 28, borderRadius: 999, backgroundColor: '#F5F3FF', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
   countPillText: { color: colors.primary, fontSize: 11, fontWeight: '800' },
+  resultTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  resultTab: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  resultTabActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2
+  },
+  resultTabText: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+  resultTabTextActive: { color: colors.primary },
+  resultTabCount: { color: colors.muted, fontSize: 11, fontWeight: '900' },
+  resultTabCountActive: { color: colors.primary },
   fixedFooter: {
     position: 'absolute',
     left: 16,

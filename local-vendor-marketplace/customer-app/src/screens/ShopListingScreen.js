@@ -3,9 +3,10 @@ import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, RefreshCont
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
-import { shopApi } from '../api/services';
-import { EmptyState, Loader, SearchBar, ShopCard, styles } from '../components/ui';
+import { productApi, shopApi } from '../api/services';
+import { EmptyState, Loader, ProductListCard, SearchBar, ShopCard, styles } from '../components/ui';
 import { colors } from '../constants';
+import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 
 const twemoji = (code) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`;
@@ -18,7 +19,10 @@ const searchModes = [
     businessType: 'Restaurant',
     placeholder: 'Search for biryani, pizza, burger...',
     title: 'Nearby Restaurants',
-    emptyTitle: 'No restaurants found'
+    emptyTitle: 'No restaurants found',
+    shopTabLabel: 'Restaurants',
+    itemTabLabel: 'Dishes',
+    itemEmptyTitle: 'No matching dishes found'
   },
   {
     key: 'grocery',
@@ -27,7 +31,10 @@ const searchModes = [
     businessType: 'Grocery / Kirana Store',
     placeholder: 'Search for atta, haldi, oil, rice...',
     title: 'Nearby Grocery Shops',
-    emptyTitle: 'No grocery shops found'
+    emptyTitle: 'No grocery shops found',
+    shopTabLabel: 'Shops',
+    itemTabLabel: 'Items',
+    itemEmptyTitle: 'No matching grocery items found'
   },
   {
     key: 'dairy',
@@ -36,7 +43,10 @@ const searchModes = [
     businessType: 'Dairy and Bakery',
     placeholder: 'Search for milk, curd, bread, cake...',
     title: 'Nearby Dairy & Bakery Shops',
-    emptyTitle: 'No dairy or bakery shops found'
+    emptyTitle: 'No dairy or bakery shops found',
+    shopTabLabel: 'Stores',
+    itemTabLabel: 'Items',
+    itemEmptyTitle: 'No matching dairy or bakery items found'
   }
 ];
 
@@ -49,8 +59,11 @@ const filters = [
 
 export default function ShopListingScreen({ navigation }) {
   const { showToast } = useToast();
+  const { addItem } = useCart();
   const [shops, setShops] = useState([]);
+  const [products, setProducts] = useState([]);
   const [activeMode, setActiveMode] = useState('grocery');
+  const [resultTab, setResultTab] = useState('shops');
   const [activeFilters, setActiveFilters] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -61,8 +74,9 @@ export default function ShopListingScreen({ navigation }) {
   const load = useCallback(async () => {
     setRefreshing(true);
     try {
-      const { data } = await shopApi.list({});
-      setShops(data);
+      const [shopRes, productRes] = await Promise.all([shopApi.list({}), productApi.list({})]);
+      setShops(shopRes.data);
+      setProducts(productRes.data);
     } catch (err) {
       showToast({ type: 'error', message: getApiError(err) });
     } finally {
@@ -77,6 +91,7 @@ export default function ShopListingScreen({ navigation }) {
 
   const selectMode = (modeKey) => {
     setActiveMode(modeKey);
+    setResultTab('shops');
     setSearch('');
     setActiveFilters([]);
   };
@@ -87,8 +102,48 @@ export default function ShopListingScreen({ navigation }) {
     );
   };
 
+  const addToCart = (product) => {
+    try {
+      addItem(product);
+      showToast({
+        type: 'success',
+        message: 'Added to cart',
+        actionLabel: 'View Cart',
+        onAction: () => navigation.navigate('Cart', { screen: 'CartMain' })
+      });
+    } catch (err) {
+      showToast({ type: 'error', message: err.message });
+    }
+  };
+
+  const visibleProducts = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return products
+      .filter((product) => product.businessType === activeConfig.businessType)
+      .filter((product) => {
+        if (!activeFilters.includes('open')) return true;
+        return product.shop?.openStatus?.isOpenNow && !product.shop?.temporaryClosure?.enabled;
+      })
+      .filter((product) => {
+        if (!query) return true;
+        return `${product.name || ''} ${product.brand || ''} ${product.description || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''} ${product.dairyBakeryType || ''} ${product.shop?.name || ''}`
+          .toLowerCase()
+          .includes(query);
+      })
+      .sort((first, second) => {
+        if (!activeFilters.includes('sort')) return 0;
+        return String(first.name || '').localeCompare(String(second.name || ''));
+      });
+  }, [activeConfig.businessType, activeFilters, products, search]);
+
   const visibleShops = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const productShopIds = new Set(
+      visibleProducts
+        .map((product) => (typeof product.shop === 'string' ? product.shop : product.shop?._id))
+        .filter(Boolean)
+    );
 
     return shops
       .filter((shop) => shop.businessType === activeConfig.businessType)
@@ -98,13 +153,14 @@ export default function ShopListingScreen({ navigation }) {
       })
       .filter((shop) => {
         if (!query) return true;
-        return `${shop.name || ''} ${shop.businessType || ''} ${shop.location?.area || ''} ${shop.location?.city || ''}`.toLowerCase().includes(query);
+        const shopTextMatches = `${shop.name || ''} ${shop.businessType || ''} ${shop.location?.area || ''} ${shop.location?.city || ''}`.toLowerCase().includes(query);
+        return shopTextMatches || productShopIds.has(shop._id);
       })
       .sort((first, second) => {
         if (!activeFilters.includes('sort')) return 0;
         return String(first.name || '').localeCompare(String(second.name || ''));
       });
-  }, [activeConfig.businessType, activeFilters, search, shops]);
+  }, [activeConfig.businessType, activeFilters, search, shops, visibleProducts]);
 
   if (loading) return <Loader />;
 
@@ -153,10 +209,25 @@ export default function ShopListingScreen({ navigation }) {
         })}
       </ScrollView>
 
+      <View style={styles.resultTabs}>
+        {[
+          { key: 'shops', label: activeConfig.shopTabLabel, count: visibleShops.length },
+          { key: 'items', label: activeConfig.itemTabLabel, count: visibleProducts.length }
+        ].map((tab) => {
+          const active = resultTab === tab.key;
+          return (
+            <Pressable key={tab.key} onPress={() => setResultTab(tab.key)} style={({ pressed }) => [styles.resultTab, active ? styles.resultTabActive : null, pressed ? styles.pressed : null]}>
+              <Text style={[styles.resultTabText, active ? styles.resultTabTextActive : null]}>{tab.label}</Text>
+              <Text style={[styles.resultTabCount, active ? styles.resultTabCountActive : null]}>{tab.count}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.between}>
-        <Text style={styles.subheading}>{activeConfig.title}</Text>
+        <Text style={styles.subheading}>{resultTab === 'shops' ? activeConfig.title : activeConfig.itemTabLabel}</Text>
         <View style={styles.countPill}>
-          <Text style={styles.countPillText}>{visibleShops.length} found</Text>
+          <Text style={styles.countPillText}>{resultTab === 'shops' ? visibleShops.length : visibleProducts.length} found</Text>
         </View>
       </View>
     </View>
@@ -168,14 +239,24 @@ export default function ShopListingScreen({ navigation }) {
         <FlatList
           style={styles.screen}
           contentContainerStyle={[styles.content, { paddingBottom: 96 }]}
-          data={visibleShops}
-          keyExtractor={(shop) => shop._id}
+          data={resultTab === 'shops' ? visibleShops : visibleProducts}
+          keyExtractor={(item) => `${resultTab}-${item._id}`}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
           ListHeaderComponent={header}
-          ListEmptyComponent={<EmptyState title={activeConfig.emptyTitle} message="Try another keyword or change filters." />}
-          renderItem={({ item }) => <ShopCard shop={item} onPress={() => navigation.navigate('Home', { screen: 'ShopDetails', params: { shopId: item._id } })} />}
+          ListEmptyComponent={<EmptyState title={resultTab === 'shops' ? activeConfig.emptyTitle : activeConfig.itemEmptyTitle} message="Try another keyword or change filters." />}
+          renderItem={({ item }) =>
+            resultTab === 'shops' ? (
+              <ShopCard shop={item} onPress={() => navigation.navigate('Home', { screen: 'ShopDetails', params: { shopId: item._id } })} />
+            ) : (
+              <ProductListCard
+                product={item}
+                onPress={() => navigation.navigate('Home', { screen: 'ProductDetails', params: { productId: item._id } })}
+                onAdd={() => addToCart(item)}
+              />
+            )
+          }
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
