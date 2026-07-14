@@ -8,6 +8,7 @@ import Cart from './pages/customer/CartV2';
 import CustomerHome from './pages/customer/CustomerHome';
 import Orders from './pages/customer/OrdersV2';
 import OrderConfirmation from './pages/customer/OrderConfirmation';
+import OrderDetails from './pages/customer/OrderDetailsV2';
 import ProductDetails from './pages/customer/ProductDetailsV2';
 import SellerDashboard from './pages/seller/SellerDashboardV2';
 import { useAuth } from './context/AuthContext';
@@ -46,6 +47,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['customer']}>
                 <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:id"
+            element={
+              <ProtectedRoute roles={['customer']}>
+                <OrderDetails />
               </ProtectedRoute>
             }
           />

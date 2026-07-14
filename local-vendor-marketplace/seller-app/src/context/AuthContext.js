@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { setUnauthorizedHandler } from '../api/client';
 import { authApi } from '../api/services';
+import { unregisterPushToken } from '../services/notificationService';
 
 const AuthContext = createContext(null);
 const tokenKey = 'lvm_seller_token';
@@ -60,6 +61,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    await unregisterPushToken().catch(() => {});
     await AsyncStorage.multiRemove([tokenKey, userKey]);
     setUser(null);
   };

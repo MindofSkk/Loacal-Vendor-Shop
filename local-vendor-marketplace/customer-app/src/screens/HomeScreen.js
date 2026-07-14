@@ -11,6 +11,7 @@ import { CompactLocationHeader, EmptyState, Loader, ProductCard, ProductListCard
 import { colors } from '../constants';
 import { useActiveOrder } from '../context/ActiveOrderContext';
 import { useCart } from '../context/CartContext';
+import { useNotifications } from '../context/NotificationContext';
 import { useToast } from '../context/ToastContext';
 import { getOrderStatusMeta } from '../utils/orderStatus';
 
@@ -105,6 +106,7 @@ const matchesModeCategory = (product, category) => {
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
   const { activeOrder, refreshActiveOrder, orderNumber, shopName, totalAmount, itemCount, estimatedDeliveryTime, currentStatus } = useActiveOrder();
+  const { unreadCount } = useNotifications();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const [allShops, setAllShops] = useState([]);
@@ -245,8 +247,9 @@ export default function HomeScreen({ navigation }) {
         greeting="Hello, SkK!"
         addressText={location ? 'Current location selected' : 'nagri, Ranchi, 835303'}
         loading={locationLoading}
+        notificationCount={unreadCount}
         onPressLocation={captureLocation}
-        onPressNotifications={() => showToast({ type: 'info', message: 'Notifications coming soon.' })}
+        onPressNotifications={() => navigation.navigate('Notifications')}
         onPressProfile={openProfile}
       />
       {locationError ? <Text style={styles.errorText}>{locationError}</Text> : null}
@@ -306,7 +309,7 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title={activeConfig.shopTitle} action="View all" onAction={() => setSelectedCategory(null)} />
       )}
     </View>
-  ), [activeConfig, activeMode, activeOrder, captureLocation, currentStatus, estimatedDeliveryTime, filteredProducts.length, filteredShops.length, itemCount, location, locationError, locationLoading, navigation, noSearchResults, openProfile, orderNumber, search, selectMode, selectedCategory, shopName, showToast, totalAmount]);
+  ), [activeConfig, activeMode, activeOrder, captureLocation, currentStatus, estimatedDeliveryTime, filteredProducts.length, filteredShops.length, itemCount, location, locationError, locationLoading, navigation, noSearchResults, openProfile, orderNumber, search, selectMode, selectedCategory, shopName, showToast, totalAmount, unreadCount]);
 
   const footerComponent = useMemo(() => {
     if (noSearchResults) return null;

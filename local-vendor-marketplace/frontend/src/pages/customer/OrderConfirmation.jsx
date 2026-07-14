@@ -55,6 +55,9 @@ export default function OrderConfirmation() {
             <ShoppingBag className="h-4 w-4" />
             View orders
           </Link>
+          <Link className="btn-secondary" to={`/orders/${order._id}`}>
+            View order details
+          </Link>
           <Link className="btn-secondary" to="/">
             Continue shopping
           </Link>

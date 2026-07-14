@@ -10,6 +10,7 @@ import AuthScreen from '../screens/AuthScreen';
 import BusinessSettingsScreen from '../screens/BusinessSettingsScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import DeliveryBoysScreen from '../screens/DeliveryBoysScreen';
+import NotificationCenterScreen from '../screens/NotificationCenterScreen';
 import OrderDetailsScreen from '../screens/OrderDetailsScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import ProductFormScreen from '../screens/ProductFormScreen';
@@ -24,6 +25,7 @@ function DashboardStack() {
   return (
     <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="DashboardMain" component={DashboardScreen} options={{ title: 'Dashboard' }} />
+      <Stack.Screen name="Notifications" component={NotificationCenterScreen} options={{ title: 'Notifications' }} />
       <Stack.Screen name="ShopProfile" component={ShopProfileScreen} options={{ title: 'Shop Profile' }} />
       <Stack.Screen name="DeliveryBoys" component={DeliveryBoysScreen} options={{ title: 'Delivery Boys' }} />
     </Stack.Navigator>

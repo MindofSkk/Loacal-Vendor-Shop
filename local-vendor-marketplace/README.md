@@ -9,7 +9,7 @@ MERN-based hyperlocal marketplace MVP for nearby food and essential shops. Custo
 - Backend: Node.js, Express, MongoDB, Mongoose
 - Auth: JWT with role-based access control
 - Uploads: Cloudinary through multipart image upload
-- Notifications: basic in-app notification documents
+- Notifications: in-app notification center plus Expo push notifications
 
 ## MVP Scope
 
@@ -91,6 +91,7 @@ cp seller-app/.env.example seller-app/.env
 
 ```env
 EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:5000/api
+EXPO_PUBLIC_EAS_PROJECT_ID=your-eas-project-id
 ```
 
 Do not use `localhost` from a real Android phone. Use your laptop IP address, for example:
@@ -182,6 +183,80 @@ Use the IPv4 address of your active Wi-Fi/LAN adapter in `EXPO_PUBLIC_API_URL`. 
 ```env
 EXPO_PUBLIC_API_URL=http://192.168.29.44:5000/api
 ```
+
+## Push Notifications
+
+The customer and seller Expo apps use Expo Notifications and the backend sends through Expo Push Service. Expo's current setup requires the mobile app to request notification permission, generate an `ExpoPushToken` with an EAS project ID, and register Android FCM credentials through EAS.
+
+Backend:
+
+- `expo-server-sdk` sends push notifications.
+- `EXPO_ACCESS_TOKEN` in `backend/.env` is optional, but recommended for production Expo Push Service access.
+- Push failures are logged and do not roll back order creation or order status updates.
+
+Mobile apps:
+
+- Customer package: `com.localvendor.customer`
+- Seller package: `com.localvendor.seller`
+- `google-services.json` is gitignored in each app folder.
+- Do not put Firebase service-account JSON or private keys in Expo public env variables.
+
+Firebase / EAS setup:
+
+1. Create two Android apps in Firebase:
+   - `com.localvendor.customer`
+   - `com.localvendor.seller`
+2. Download each Firebase `google-services.json`.
+3. Place the customer file at `customer-app/google-services.json`.
+4. Place the seller file at `seller-app/google-services.json`.
+5. Create or link EAS projects and copy the project IDs into each mobile `.env`:
+
+```env
+EXPO_PUBLIC_EAS_PROJECT_ID=your-eas-project-id
+```
+
+6. Build real Android binaries for push testing. Expo Go is not enough for final FCM validation:
+
+```bash
+cd customer-app
+eas build -p android --profile preview
+
+cd ../seller-app
+eas build -p android --profile preview
+```
+
+Notification API:
+
+```text
+GET /api/notifications
+PATCH /api/notifications/:id/read
+PATCH /api/notifications/read-all
+POST /api/notifications/register-token
+DELETE /api/notifications/unregister-token
+```
+
+Push events implemented:
+
+- Customer places order: seller receives "New order".
+- Seller updates order status: customer receives status update.
+- Customer cancels a pending order: seller receives cancellation alert.
+- Tapping an order notification opens the relevant order details screen when logged in.
+
+Notification behavior:
+
+- Both apps keep the existing polling/in-app flow as fallback.
+- Both apps have a notification center with unread badge.
+- Foreground pushes show the existing top toast with a View Order action when applicable.
+- Android channels are configured separately for customer order updates and seller new-order/action alerts.
+
+Web notification behavior:
+
+- Customer Web uses centralized active-order polling every 10 seconds while an active order exists.
+- Seller Web uses centralized order polling every 10 seconds for new-order awareness.
+- Polling pauses while the browser tab is hidden and refreshes again when visible.
+- Customer and seller web pages reuse the `/api/notifications` history endpoints through the navbar bell.
+- Web toasts appear at the top of the page and include View Order actions when relevant.
+- Browser push/FCM Web is prepared behind a service abstraction, but Firebase Web config is not hardcoded. Add Firebase Web config and token registration before enabling real browser push delivery.
 
 ## Production Cleanup
 
@@ -364,8 +439,9 @@ Known issues:
 
 - Android device and backend must be on the same network for local IP testing.
 - Product image and shop logo upload require Cloudinary env values in `backend/.env`.
+- Push notifications require physical-device testing with EAS builds and Firebase Android credentials.
 - Expo dependency audit may show moderate warnings from the React Native toolchain; current bundle/export checks pass.
 
 ## MVP Boundaries
 
-This version intentionally excludes payment gateway integration, live delivery tracking, delivery boy app, OTP delivery verification, multi-city logic, AI features, complex offers/coupons, and FCM push notifications.
+This version intentionally excludes payment gateway integration, live delivery tracking, delivery boy app, OTP delivery verification, multi-city logic, AI features, and complex offers/coupons.

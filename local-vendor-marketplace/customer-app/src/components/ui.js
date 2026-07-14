@@ -91,7 +91,7 @@ export function AppHeader({ title, subtitle, right }) {
   );
 }
 
-export function CompactLocationHeader({ greeting = 'Hello!', addressText, loading, onPressLocation, onPressProfile, onPressNotifications }) {
+export function CompactLocationHeader({ greeting = 'Hello!', addressText, loading, notificationCount = 0, onPressLocation, onPressProfile, onPressNotifications }) {
   return (
     <View style={styles.homeHeader}>
       <View style={styles.flex}>
@@ -107,6 +107,11 @@ export function CompactLocationHeader({ greeting = 'Hello!', addressText, loadin
       <View style={styles.headerActions}>
         <Pressable onPress={onPressNotifications} hitSlop={10} style={({ pressed }) => [styles.smallIconButton, pressed ? styles.pressed : null]}>
           <Ionicons name="notifications-outline" size={22} color={colors.ink} />
+          {notificationCount > 0 ? (
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable onPress={onPressProfile} hitSlop={10} style={({ pressed }) => [styles.smallIconButton, styles.profileIconButton, pressed ? styles.pressed : null]}>
           <Ionicons name="person" size={22} color={colors.primary} />
@@ -599,6 +604,8 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border
   },
+  headerBadge: { position: 'absolute', top: -4, right: -4, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  headerBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   profileIconButton: { backgroundColor: '#EDE9FE', borderColor: '#DDD6FE' },
   headerTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
   headerSubtitle: { color: colors.muted, fontWeight: fontWeights.medium, fontSize: fontSizes.sm, marginTop: 2 },

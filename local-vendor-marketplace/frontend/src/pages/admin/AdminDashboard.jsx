@@ -1,9 +1,10 @@
-import { Ban, Check, Plus, RotateCcw, X } from 'lucide-react';
+import { Ban, Check, Eye, Plus, RotateCcw, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
 import { categoryApi, orderApi, shopApi, userApi } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
+import { getOrderItemCount, getOrderTotal, getShortOrderId } from '../../utils/orderStatus';
 
 const includesText = (value, query) => String(value || '').toLowerCase().includes(query);
 const sectionToTab = {
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [actionLoading, setActionLoading] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   const loadData = useCallback(async (nextShopFilters = shopFilters, nextOrderFilters = orderFilters) => {
     const [userRes, shopRes, orderRes, categoryRes] = await Promise.all([
@@ -356,12 +358,18 @@ export default function AdminDashboard() {
             <article key={order._id} className="panel space-y-3">
               <div className="flex flex-wrap justify-between gap-3">
                 <div>
-                  <h2 className="font-black">Order #{order._id.slice(-6)}</h2>
+                  <h2 className="font-bold text-slate-950">Order #{getShortOrderId(order)}</h2>
                   <p className="text-sm text-stone-600">{order.customer?.name} from {order.shop?.name}</p>
                 </div>
                 <StatusBadge status={order.status} />
               </div>
-              <p className="text-lg font-black">₹{order.subtotal}</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-base font-bold text-slate-950">Rs {order.subtotal}</p>
+                <button className="btn-secondary" type="button" onClick={() => setSelectedOrder(order)}>
+                  <Eye className="h-4 w-4" />
+                  Inspect order
+                </button>
+              </div>
             </article>
           ))}
           {visibleOrders.length === 0 && <p className="panel text-stone-600">No orders found.</p>}
@@ -402,6 +410,65 @@ export default function AdminDashboard() {
           <p className="text-sm text-stone-600">
             Admin settings are not configured in this MVP. Use Users, Shops, Orders, and Categories to manage marketplace data.
           </p>
+        </div>
+      )}
+
+      {selectedOrder && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <p className="label">Order inspection</p>
+                <h2 className="text-xl font-bold text-slate-950">Order #{getShortOrderId(selectedOrder)}</h2>
+                <p className="text-sm font-semibold text-slate-500">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={selectedOrder.status} />
+                <button className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" type="button" onClick={() => setSelectedOrder(null)}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <section className="rounded-2xl bg-slate-50 p-3">
+                <p className="label">Customer</p>
+                <p className="mt-1 font-bold text-slate-950">{selectedOrder.customer?.name || 'Customer'}</p>
+                <p className="text-sm text-slate-600">{selectedOrder.customer?.email}</p>
+                <p className="text-sm text-slate-600">{selectedOrder.customer?.phone || selectedOrder.deliveryAddress?.phone}</p>
+              </section>
+              <section className="rounded-2xl bg-slate-50 p-3">
+                <p className="label">Seller / Shop</p>
+                <p className="mt-1 font-bold text-slate-950">{selectedOrder.shop?.name || 'Shop'}</p>
+                <p className="text-sm text-slate-600">{selectedOrder.seller?.name || selectedOrder.seller?.email}</p>
+                <p className="text-sm text-slate-600">{selectedOrder.shop?.businessType}</p>
+              </section>
+              <section className="rounded-2xl bg-slate-50 p-3 md:col-span-2">
+                <p className="label">Delivery Address</p>
+                <p className="mt-1 text-sm font-semibold text-slate-700">{selectedOrder.deliveryAddress?.fullAddress || 'No address available'}</p>
+                {selectedOrder.deliveryAddress?.landmark && <p className="text-sm text-slate-600">Landmark: {selectedOrder.deliveryAddress.landmark}</p>}
+                <p className="text-sm text-slate-600">Phone: {selectedOrder.deliveryAddress?.phone || 'N/A'}</p>
+              </section>
+              <section className="rounded-2xl bg-slate-50 p-3 md:col-span-2">
+                <p className="label">Items</p>
+                <div className="mt-2 grid gap-2">
+                  {selectedOrder.items?.map((item) => (
+                    <div key={`${item.product}-${item.name}`} className="flex justify-between rounded-xl bg-white px-3 py-2 text-sm">
+                      <span className="font-semibold text-slate-700">{item.name} x {item.quantity}</span>
+                      <span className="font-bold text-slate-950">₹{Number(item.price || 0) * Number(item.quantity || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="rounded-2xl bg-violet-50 p-3 md:col-span-2">
+                <p className="label">Amount</p>
+                <p className="mt-1 text-2xl font-bold text-violet-800">₹{getOrderTotal(selectedOrder)}</p>
+                <p className="text-sm font-semibold text-violet-700">
+                  {getOrderItemCount(selectedOrder)} items • Payment: {selectedOrder.paymentMethod || 'COD'} • {selectedOrder.paymentStatus || 'NOT_REQUIRED'}
+                </p>
+              </section>
+            </div>
+          </div>
         </div>
       )}
     </section>

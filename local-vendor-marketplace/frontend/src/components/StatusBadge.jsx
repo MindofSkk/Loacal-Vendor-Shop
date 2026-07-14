@@ -1,11 +1,6 @@
+import { getOrderStatusConfig } from '../utils/orderStatus';
+
 const statusClass = {
-  Pending: 'bg-amber-100 text-amber-800',
-  Accepted: 'bg-blue-100 text-blue-800',
-  Packed: 'bg-indigo-100 text-indigo-800',
-  'Out for Delivery': 'bg-sky-100 text-sky-800',
-  Delivered: 'bg-emerald-100 text-emerald-800',
-  Cancelled: 'bg-red-100 text-red-800',
-  Rejected: 'bg-red-100 text-red-800',
   approved: 'bg-emerald-100 text-emerald-800',
   pending: 'bg-amber-100 text-amber-800',
   rejected: 'bg-red-100 text-red-800',
@@ -15,9 +10,13 @@ const statusClass = {
 };
 
 export default function StatusBadge({ status }) {
+  const orderStatus = getOrderStatusConfig(status);
+  const className = statusClass[status] || orderStatus.tone || 'bg-stone-100 text-stone-700';
+  const label = statusClass[status] ? status : orderStatus.label;
+
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusClass[status] || 'bg-stone-100 text-stone-700'}`}>
-      {status}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${className}`}>
+      {label}
     </span>
   );
 }

@@ -5,6 +5,8 @@ import { getApiError } from '../../api/client';
 import { orderApi } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useCustomerOrders } from '../../context/CustomerOrdersContext';
+import { useToast } from '../../context/ToastContext';
 import { getProductThumbnail } from '../../utils/productImages';
 
 const minutesFromTime = (time) => {
@@ -49,6 +51,8 @@ const getDistanceKm = (from, to) => {
 export default function CartV2() {
   const { user } = useAuth();
   const { items, subtotal, updateQuantity, removeItem, clearCart, cartError } = useCart();
+  const { setCreatedOrderActive } = useCustomerOrders();
+  const toast = useToast();
   const navigate = useNavigate();
   const [address, setAddress] = useState({
     fullAddress: [user?.address?.line1, user?.address?.area, user?.address?.city, user?.address?.pincode]
@@ -112,10 +116,13 @@ export default function CartV2() {
         }
       });
       const shopName = items[0]?.shop?.name;
+      setCreatedOrderActive(data);
       clearCart();
+      toast.success({ title: 'Order placed', message: 'Seller will confirm your order soon.' });
       navigate('/order-confirmation', { state: { order: data, shopName } });
     } catch (err) {
       setError(getApiError(err));
+      toast.error({ title: 'Order failed', message: getApiError(err) });
     } finally {
       setLoading(false);
     }

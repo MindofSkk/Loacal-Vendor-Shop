@@ -1,15 +1,17 @@
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getApiError } from '../api/client';
 import { orderApi, productApi, shopApi } from '../api/services';
 import { Button, Card, EmptyState, MetricCard, OrderRow, SearchBar, SectionHeader, SkeletonCard, StatusBadge, styles } from '../components/ui';
 import { colors } from '../constants';
+import { useNotifications } from '../context/NotificationContext';
 import { useToast } from '../context/ToastContext';
 
 export default function DashboardScreen({ navigation }) {
   const { showToast } = useToast();
+  const { unreadCount } = useNotifications();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -82,7 +84,17 @@ export default function DashboardScreen({ navigation }) {
             <Text style={dashboardStyles.shopName} numberOfLines={1}>{shop?.name || 'Create your shop'}</Text>
             <Text style={styles.muted}>{shop?.businessType || 'Add shop details to start selling.'}</Text>
           </View>
-          {shop ? <StatusBadge status={shop.status} /> : null}
+          <View style={dashboardStyles.headerActions}>
+            <Pressable onPress={() => navigation.navigate('Notifications')} style={({ pressed }) => [dashboardStyles.bellButton, pressed ? styles.pressed : null]}>
+              <Ionicons name="notifications-outline" size={21} color={colors.ink} />
+              {unreadCount > 0 ? (
+                <View style={dashboardStyles.badge}>
+                  <Text style={dashboardStyles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            {shop ? <StatusBadge status={shop.status} /> : null}
+          </View>
         </View>
         {!shop ? <Button title="Create Shop Profile" onPress={() => navigation.navigate('ShopProfile', { shop })} /> : null}
       </Card>
@@ -144,5 +156,9 @@ const dashboardStyles = StyleSheet.create({
   shopHeader: { gap: 12, backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' },
   logoWrap: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   shopName: { color: colors.ink, fontSize: 20, lineHeight: 25, fontWeight: '600' },
-  productMiniRow: { minHeight: 38, borderRadius: 12, backgroundColor: '#F8FAFC', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }
+  productMiniRow: { minHeight: 38, borderRadius: 12, backgroundColor: '#F8FAFC', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  headerActions: { alignItems: 'flex-end', gap: 8 },
+  bellButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', top: -4, right: -4, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: colors.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' }
 });

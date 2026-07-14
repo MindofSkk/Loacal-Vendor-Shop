@@ -10,6 +10,7 @@ import AuthScreen from '../screens/AuthScreen';
 import CartScreen from '../screens/CartScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import HomeScreen from '../screens/HomeScreen';
+import NotificationCenterScreen from '../screens/NotificationCenterScreen';
 import OrderDetailsScreen from '../screens/OrderDetailsScreen';
 import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 import OrdersScreen from '../screens/OrdersScreen';
@@ -26,6 +27,7 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Notifications" component={NotificationCenterScreen} options={{ title: 'Notifications' }} />
       <Stack.Screen name="ShopDetails" component={ShopDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Details' }} />
     </Stack.Navigator>

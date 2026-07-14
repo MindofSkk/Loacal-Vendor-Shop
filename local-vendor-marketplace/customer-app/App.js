@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { ActiveOrderProvider } from './src/context/ActiveOrderContext';
 import { CartProvider } from './src/context/CartContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { navigationRef } from './src/navigation/navigationRef';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -18,7 +19,9 @@ export default function App() {
           <ToastProvider>
             <NavigationContainer ref={navigationRef}>
               <ActiveOrderProvider>
-                <RootNavigator />
+                <NotificationProvider>
+                  <RootNavigator />
+                </NotificationProvider>
               </ActiveOrderProvider>
             </NavigationContainer>
           </ToastProvider>

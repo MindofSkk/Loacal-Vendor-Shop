@@ -7,10 +7,16 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "android": {
-      "package": "com.localvendormarketplace.customer",
+      "package": "com.localvendor.customer",
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
     },
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "orders"
+        }
+      ],
       [
         "expo-location",
         {

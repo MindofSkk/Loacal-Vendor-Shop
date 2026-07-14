@@ -27,3 +27,11 @@ export const orderApi = {
   get: (id) => api.get(`/orders/${id}`),
   cancel: (id, payload) => api.patch(`/orders/${id}/cancel`, payload)
 };
+
+export const notificationApi = {
+  list: (params) => api.get('/notifications', { params }),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllRead: () => api.patch('/notifications/read-all'),
+  registerToken: (payload) => api.post('/notifications/register-token', payload),
+  unregisterToken: (payload) => api.delete('/notifications/unregister-token', { data: payload })
+};

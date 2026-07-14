@@ -1,4 +1,4 @@
-import { ArrowRight, Clock, MapPin, Milk, ShoppingBasket, Star, Store, Truck, Utensils } from 'lucide-react';
+import { ArrowRight, Clock, MapPin, Milk, PackageCheck, ShoppingBasket, Star, Store, Truck, Utensils } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getApiError } from '../../api/client';
@@ -6,6 +6,8 @@ import { categoryApi, productApi, shopApi } from '../../api/services';
 import ProductCard from '../../components/ProductCardV2';
 import StatusBadge from '../../components/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
+import { useCustomerOrders } from '../../context/CustomerOrdersContext';
+import { getOrderItemCount, getOrderStatusMessage, getOrderTotal, getShortOrderId } from '../../utils/orderStatus';
 
 const categoryTiles = [
   {
@@ -33,6 +35,7 @@ const includesText = (value, query) => String(value || '').toLowerCase().include
 
 export default function CustomerHome() {
   const { user } = useAuth();
+  const { activeOrder, activeOrders } = useCustomerOrders();
   const [searchParams] = useSearchParams();
   const latitudeParam = searchParams.get('latitude') || '';
   const longitudeParam = searchParams.get('longitude') || '';
@@ -234,6 +237,36 @@ export default function CustomerHome() {
       </section>
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      {user?.role === 'customer' && activeOrder && (
+        <section className="rounded-2xl border border-violet-100 bg-white p-4 shadow-sm ring-1 ring-violet-50">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100">
+                <PackageCheck className="h-6 w-6 text-violet-700" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-base font-bold text-slate-950">{activeOrder.shop?.name || 'Local shop'}</h2>
+                  <StatusBadge status={activeOrder.status} />
+                </div>
+                <p className="mt-1 text-sm font-semibold text-slate-600">{getOrderStatusMessage(activeOrder)}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Order #{getShortOrderId(activeOrder)} • {getOrderItemCount(activeOrder)} items • ₹{getOrderTotal(activeOrder)}
+                  {activeOrder.shop?.deliverySettings?.estimatedDeliveryTime ? ` • ETA ${activeOrder.shop.deliverySettings.estimatedDeliveryTime}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeOrders.length > 1 && <Link className="btn-secondary" to="/orders">View all active orders</Link>}
+              <Link className="btn-primary" to={`/orders/${activeOrder._id}`}>
+                View Order
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">

@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import NotificationCenter from './NotificationCenter';
 
 const roleTheme = {
   customer: {
@@ -326,6 +327,7 @@ export default function Navbar() {
             </nav>
             <div className="flex items-center gap-3">
               {role === 'customer' ? <ShoppingCart className="h-5 w-5 text-slate-500" /> : null}
+              <NotificationCenter />
               <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
                 <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black text-white ${theme.accent}`}>
                   {(loading ? 'C' : user?.name || 'G').slice(0, 1).toUpperCase()}

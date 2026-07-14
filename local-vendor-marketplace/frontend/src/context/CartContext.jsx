@@ -1,8 +1,10 @@
 import { createContext, useContext, useState } from 'react';
+import { useToast } from './ToastContext';
 
 const CartContext = createContext(null);
 
 export const CartProvider = ({ children }) => {
+  const toast = useToast();
   // Cart is local-only in the MVP and is restored after page refresh.
   const [items, setItems] = useState(() => {
     const stored = localStorage.getItem('lvm_cart');
@@ -37,6 +39,16 @@ export const CartProvider = ({ children }) => {
 
     sync(nextItems);
     setCartError('');
+    toast?.success({
+      title: 'Added to cart',
+      message: product.name,
+      key: `cart-add-${product._id}-${Date.now()}`,
+      actionLabel: 'View Cart',
+      onAction: () => {
+        window.history.pushState(null, '', '/cart');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    });
     return { ok: true };
   };
 
@@ -47,7 +59,10 @@ export const CartProvider = ({ children }) => {
     sync(nextItems);
   };
 
-  const removeItem = (id) => sync(items.filter((item) => item._id !== id));
+  const removeItem = (id) => {
+    sync(items.filter((item) => item._id !== id));
+    toast?.info({ title: 'Removed from cart', key: `cart-remove-${id}-${Date.now()}` });
+  };
   const clearCart = () => {
     sync([]);
     setCartError('');

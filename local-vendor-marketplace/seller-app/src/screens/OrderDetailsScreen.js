@@ -50,8 +50,8 @@ export default function OrderDetailsScreen({ route, navigation }) {
     if (status === order.status) return;
     setStatusLoading(true);
     try {
-      await orderApi.updateSellerStatus(order._id, { status, note: `Seller marked ${status}` });
-      setOrder({ ...order, status });
+      const { data } = await orderApi.updateSellerStatus(order._id, { status, note: `Seller marked ${status}` });
+      setOrder({ ...order, ...data });
       showToast({ type: 'success', message: `Order marked ${status}.` });
     } catch (err) {
       showToast({ type: 'error', message: getApiError(err) });
