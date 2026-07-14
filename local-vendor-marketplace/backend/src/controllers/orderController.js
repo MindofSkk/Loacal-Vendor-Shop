@@ -1,7 +1,11 @@
-import { Notification } from '../models/Notification.js';
 import { Order, ORDER_STATUSES } from '../models/Order.js';
 import { Product } from '../models/Product.js';
 import { Shop } from '../models/Shop.js';
+import {
+  sendCustomerOrderNotification,
+  sendSellerCustomerCancelledNotification,
+  sendSellerNewOrderNotification
+} from '../services/notificationService.js';
 import { ApiError } from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { getDeliveryEligibility, getOpenStatus } from '../utils/shopStatus.js';
@@ -118,16 +122,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     notes
   });
 
-  await Notification.create({
-    user: sellerId,
-    title: 'New order received',
-    message: `Order ${order._id.toString().slice(-6)} is waiting for your action.`,
-    type: 'order',
-    link: '/seller/orders'
-  });
-
   const createdOrder = await Order.findById(order._id)
     .populate('shop', 'name phone location logoUrl businessType deliverySettings');
+
+  await sendSellerNewOrderNotification(createdOrder);
+  await sendCustomerOrderNotification(createdOrder, 'Pending');
 
   res.status(201).json(createdOrder);
 });
@@ -186,13 +185,7 @@ export const cancelMyOrder = asyncHandler(async (req, res) => {
     }
   }
 
-  await Notification.create({
-    user: order.seller,
-    title: 'Order cancelled',
-    message: `Customer cancelled order ${order._id.toString().slice(-6)}.`,
-    type: 'order',
-    link: '/seller/orders'
-  });
+  await sendSellerCustomerCancelledNotification(order);
 
   res.json(order);
 });
@@ -259,14 +252,8 @@ export const updateSellerOrderStatus = asyncHandler(async (req, res) => {
   }
 
   await order.save();
-
-  await Notification.create({
-    user: order.customer,
-    title: `Order ${status}`,
-    message: `Your order ${order._id.toString().slice(-6)} is now ${status}.`,
-    type: 'order',
-    link: '/orders'
-  });
+  await order.populate('shop', 'name phone location logoUrl businessType deliverySettings');
+  await sendCustomerOrderNotification(order, status);
 
   res.json(order);
 });

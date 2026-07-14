@@ -15,6 +15,7 @@ export const createProductValidator = [
   body('groceryCategory').optional().isIn(GROCERY_CATEGORIES).withMessage('Invalid grocery category'),
   body('dairyBakeryType').optional().isIn(['Dairy', 'Bakery']).withMessage('Type must be Dairy or Bakery'),
   body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false'),
+  body('imageUrls').optional(),
   body('thumbnailIndex').optional().isInt({ min: 0, max: 2 }).withMessage('Thumbnail must be one of the uploaded images')
 ];
 
@@ -32,5 +33,6 @@ export const updateProductValidator = [
   body('groceryCategory').optional().isIn(GROCERY_CATEGORIES).withMessage('Invalid grocery category'),
   body('dairyBakeryType').optional().isIn(['Dairy', 'Bakery']).withMessage('Type must be Dairy or Bakery'),
   body('freshStockToday').optional().isBoolean().withMessage('Fresh stock must be true or false'),
+  body('imageUrls').optional(),
   body('thumbnailIndex').optional().isInt({ min: 0, max: 2 }).withMessage('Thumbnail must be one of the uploaded images')
 ];

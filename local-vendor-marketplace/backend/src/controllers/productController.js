@@ -39,6 +39,28 @@ const toBoolean = (value) => value === true || value === 'true' || value === 'Ye
 
 const limitProductImages = (images = []) => images.slice(0, MAX_PRODUCT_IMAGES);
 
+const parseProductImageUrls = (value) => {
+  if (value === undefined) return [];
+
+  const rawValues = Array.isArray(value)
+    ? value
+    : (() => {
+        try {
+          return JSON.parse(value || '[]');
+        } catch {
+          return String(value || '')
+            .split(/\r?\n|,/)
+            .map((item) => item.trim());
+        }
+      })();
+
+  return rawValues
+    .map((item) => (typeof item === 'string' ? item : item?.url))
+    .map((url) => String(url || '').trim())
+    .filter((url) => /^https?:\/\//i.test(url))
+    .map((url) => ({ url }));
+};
+
 const normalizeThumbnailIndex = (value, imageCount) => {
   const parsed = Number.parseInt(value, 10);
   const maxIndex = Math.max(Math.min(imageCount, MAX_PRODUCT_IMAGES) - 1, 0);
@@ -132,9 +154,9 @@ export const getProductById = asyncHandler(async (req, res) => {
 
 export const createProduct = asyncHandler(async (req, res) => {
   const shop = await getApprovedSellerShop(req.user._id);
-  const images = [];
+  const images = parseProductImageUrls(req.body.imageUrls);
 
-  if (req.files?.length > MAX_PRODUCT_IMAGES) {
+  if ((req.files?.length || 0) + images.length > MAX_PRODUCT_IMAGES) {
     throw new ApiError(400, `You can upload up to ${MAX_PRODUCT_IMAGES} product images`);
   }
 
@@ -168,15 +190,21 @@ export const updateProduct = asyncHandler(async (req, res) => {
 
   Object.assign(product, update);
 
-  if (req.files?.length > MAX_PRODUCT_IMAGES) {
+  const pastedImages = parseProductImageUrls(req.body.imageUrls);
+  const hasImageUrlField = req.body.imageUrls !== undefined;
+
+  if ((req.files?.length || 0) + pastedImages.length > MAX_PRODUCT_IMAGES) {
     throw new ApiError(400, `You can upload up to ${MAX_PRODUCT_IMAGES} product images`);
   }
 
-  if (req.files?.length) {
+  if (req.files?.length || hasImageUrlField) {
     if (!configureCloudinary()) {
-      throw new ApiError(500, 'Cloudinary is not configured');
+      if (req.files?.length) {
+        throw new ApiError(500, 'Cloudinary is not configured');
+      }
     }
-    product.images = limitProductImages(await Promise.all(req.files.map(uploadBufferToCloudinary)));
+    const uploadedImages = req.files?.length ? await Promise.all(req.files.map(uploadBufferToCloudinary)) : [];
+    product.images = limitProductImages([...pastedImages, ...uploadedImages]);
   } else {
     product.images = limitProductImages(product.images);
   }
