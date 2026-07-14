@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { shopApi } from '../api/services';
-import { Button, Card, ConfirmDialog, EmptyState, Input, Loader, StatusBadge, styles } from '../components/ui';
+import { Button, Card, ConfirmDialog, EmptyState, Input, Loader, SearchBar, StatusBadge, styles } from '../components/ui';
+import { colors } from '../constants';
 import { useToast } from '../context/ToastContext';
 
 export default function DeliveryBoysScreen({ route, navigation }) {
@@ -13,6 +15,7 @@ export default function DeliveryBoysScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!shop) {
@@ -68,24 +71,44 @@ export default function DeliveryBoysScreen({ route, navigation }) {
 
   if (loading) return <Loader message="Loading delivery contacts..." />;
 
+  const query = search.trim().toLowerCase();
+  const filteredContacts = deliveryBoys
+    .map((contact, index) => ({ contact, index }))
+    .filter(({ contact }) => !query || `${contact.name || ''} ${contact.phone || ''}`.toLowerCase().includes(query));
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Card style={[styles.hero, { gap: 8 }]}>
         <Text style={styles.heading}>Delivery Boys</Text>
         <Text style={styles.muted}>Save trusted contacts for one-tap WhatsApp order sharing.</Text>
       </Card>
+      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search delivery boy..." />
       {deliveryBoys.length === 0 ? (
         <EmptyState title="No contacts" message="Add delivery boy phone numbers to share orders faster." actionLabel="Add delivery boy" onAction={() => setDeliveryBoys([{ name: '', phone: '' }])} />
       ) : null}
-      {deliveryBoys.map((contact, index) => (
-        <Card key={`${contact.name}-${index}`} style={{ gap: 10 }}>
+      {deliveryBoys.length && filteredContacts.length === 0 ? (
+        <EmptyState title="No matching contacts" message="Try searching by name or phone number." />
+      ) : null}
+      {filteredContacts.map(({ contact, index }) => (
+        <Card key={`${contact.name}-${index}`} style={deliveryStyles.contactCard}>
           <View style={styles.between}>
-            <Text style={styles.title}>Contact {index + 1}</Text>
+            <View style={styles.row}>
+              <View style={deliveryStyles.avatar}>
+                <Ionicons name="person-outline" size={20} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.title}>{contact.name || `Contact ${index + 1}`}</Text>
+                <Text style={styles.muted}>{contact.phone || 'Phone not added'}</Text>
+              </View>
+            </View>
             <StatusBadge status={contact.phone ? 'Active' : 'Draft'} />
           </View>
           <Input label="Name" error={errors[index]?.name} value={contact.name} onChangeText={(value) => update(index, 'name', value)} />
           <Input label="Phone" helper="Use 10 digit Indian mobile number." error={errors[index]?.phone} keyboardType="phone-pad" value={contact.phone} onChangeText={(value) => update(index, 'phone', value)} />
-          <Button title="Delete" variant="outlineDanger" onPress={() => setPendingDelete(index)} />
+          <View style={styles.row}>
+            <Button title="Edit" variant="secondary" onPress={() => {}} disabled style={styles.flex} />
+            <Button title="Delete" variant="outlineDanger" onPress={() => setPendingDelete(index)} style={styles.flex} />
+          </View>
         </Card>
       ))}
       <View style={styles.row}>
@@ -104,3 +127,8 @@ export default function DeliveryBoysScreen({ route, navigation }) {
     </ScrollView>
   );
 }
+
+const deliveryStyles = StyleSheet.create({
+  contactCard: { gap: 10, padding: 12 },
+  avatar: { width: 42, height: 42, borderRadius: 15, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }
+});

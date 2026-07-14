@@ -1,7 +1,10 @@
 import { useRef } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants';
+import { fontSizes, fontWeights, lineHeights, spacing } from '../theme/typography';
+import { getOrderStatusMeta } from '../utils/orderStatus';
 import { getProductThumbnail } from '../utils/productImages';
 
 const radius = {
@@ -151,19 +154,15 @@ export function FixedFooter({ children, style }) {
 }
 
 export function CartPreviewBar({ items, subtotal, quantity, onPress }) {
-  const previewItems = items.slice(0, 3);
+  const insets = useSafeAreaInsets();
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.cartPreviewBar, pressed ? styles.pressed : null]}>
-      <View style={styles.cartPreviewImages}>
-        {previewItems.map((item, index) => {
-          const image = getProductThumbnail(item);
-          return (
-            <View key={`${item._id}-${index}`} style={[styles.cartPreviewThumb, { marginLeft: index === 0 ? 0 : -10 }]}>
-              {image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={16} color={colors.primary} />}
-            </View>
-          );
-        })}
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.cartPreviewBar, { bottom: Math.max(insets.bottom, 0) + 12 }, pressed ? styles.pressed : null]}>
+      <View style={styles.cartPreviewIconWrap}>
+        <Ionicons name="cart-outline" size={28} color={colors.primary} />
+        <View style={styles.cartPreviewCount}>
+          <Text style={styles.cartPreviewCountText}>{quantity}</Text>
+        </View>
       </View>
       <View style={styles.flex}>
         <Text style={styles.cartPreviewTitle} numberOfLines={1}>{quantity} {quantity === 1 ? 'item' : 'items'} in cart</Text>
@@ -285,9 +284,21 @@ export function EmptyState({ title, message, actionLabel, onAction }) {
 }
 
 export function StatusBadge({ status }) {
-  const normalized = String(status || 'new').toLowerCase();
+  const rawStatus = String(status || '');
+  const orderStatuses = ['Pending', 'Accepted', 'Packed', 'Out for Delivery', 'Delivered', 'Cancelled', 'Rejected'];
+
+  if (orderStatuses.includes(rawStatus)) {
+    const meta = getOrderStatusMeta(rawStatus);
+    return (
+      <View style={[styles.badge, { backgroundColor: meta.bg }]}>
+        <Text style={[styles.badgeText, { color: meta.color }]}>{meta.shortLabel || rawStatus}</Text>
+      </View>
+    );
+  }
+
+  const normalized = rawStatus.toLowerCase();
   const tone =
-    normalized.includes('open') || normalized.includes('delivered') || normalized.includes('approved') || normalized.includes('active') || normalized.includes('placed')
+    normalized.includes('open') || normalized.includes('approved') || normalized.includes('active')
       ? styles.greenBadge
       : normalized.includes('closed') || normalized.includes('cancel') || normalized.includes('reject') || normalized.includes('suspend')
         ? styles.redBadge
@@ -500,6 +511,7 @@ export function MenuCard({ icon, title, subtitle, onPress, danger }) {
 export function OrderCard({ order, onPress }) {
   const total = order.totalAmount ?? order.subtotal ?? 0;
   const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '';
+  const meta = getOrderStatusMeta(order.status);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed ? styles.pressed : null]}>
@@ -508,6 +520,7 @@ export function OrderCard({ order, onPress }) {
           <View style={styles.flex}>
             <Text style={styles.title}>Order #{order._id?.slice(-6)}</Text>
             <Text style={styles.muted} numberOfLines={1}>{order.shop?.name || 'Local shop'}</Text>
+            <Text style={styles.small} numberOfLines={1}>{meta.progressText(order.shop?.name || 'the shop')}</Text>
           </View>
           <StatusBadge status={order.status} />
         </View>
@@ -549,13 +562,13 @@ export const AppCard = Card;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, paddingTop: 14, paddingBottom: 96, gap: 12 },
+  content: { padding: spacing.lg, paddingTop: spacing.md, paddingBottom: 88, gap: spacing.md },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 12,
+    padding: spacing.md,
     shadowColor: '#0f172a',
     shadowOpacity: 0.07,
     shadowRadius: 10,
@@ -567,12 +580,12 @@ export const styles = StyleSheet.create({
     borderColor: '#ddd6fe',
     overflow: 'hidden'
   },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: colors.bg },
+  row: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
+  screenHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md, backgroundColor: colors.bg },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   appHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
   homeHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingTop: 2 },
-  greeting: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 4 },
+  greeting: { fontSize: fontSizes.lg, lineHeight: lineHeights.lg, fontWeight: fontWeights.bold, color: colors.ink, marginBottom: 3 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' },
   locationText: { color: colors.ink, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 1 },
@@ -587,19 +600,19 @@ export const styles = StyleSheet.create({
     borderColor: colors.border
   },
   profileIconButton: { backgroundColor: '#EDE9FE', borderColor: '#DDD6FE' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
-  headerSubtitle: { color: colors.muted, fontWeight: '600', fontSize: 12, marginTop: 2 },
+  headerTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
+  headerSubtitle: { color: colors.muted, fontWeight: fontWeights.medium, fontSize: fontSizes.sm, marginTop: 2 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   flex: { flex: 1 },
-  title: { fontSize: 16, lineHeight: 20, fontWeight: '800', color: colors.ink, flexShrink: 1 },
-  heading: { fontSize: 20, lineHeight: 26, fontWeight: '700', color: colors.ink },
-  subheading: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  muted: { color: colors.muted, fontWeight: '500', lineHeight: 19, fontSize: 13 },
-  small: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 3 },
-  link: { color: colors.primary, fontWeight: '800' },
-  label: { color: colors.muted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
+  title: { fontSize: fontSizes.base, lineHeight: lineHeights.base, fontWeight: fontWeights.semibold, color: colors.ink, flexShrink: 1 },
+  heading: { fontSize: fontSizes.xl, lineHeight: lineHeights.xl, fontWeight: fontWeights.bold, color: colors.ink },
+  subheading: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
+  muted: { color: colors.muted, fontWeight: fontWeights.medium, lineHeight: lineHeights.md, fontSize: fontSizes.md },
+  small: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, marginTop: 3 },
+  link: { color: colors.primary, fontWeight: fontWeights.semibold },
+  label: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, textTransform: 'uppercase', marginBottom: 6 },
   inputShell: {
-    minHeight: 48,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -609,14 +622,14 @@ export const styles = StyleSheet.create({
     alignItems: 'center'
   },
   inputError: { borderColor: colors.error, backgroundColor: '#fff7f7' },
-  fieldError: { color: colors.error, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  fieldError: { color: colors.error, fontSize: 12, fontWeight: '600', marginTop: 5 },
   helperText: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 5 },
   textAreaShell: { minHeight: 100, alignItems: 'flex-start', paddingTop: 12 },
-  inputIcon: { color: colors.primary, fontWeight: '800', marginRight: 8 },
-  input: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '500', paddingVertical: 10 },
+  inputIcon: { color: colors.primary, fontWeight: fontWeights.semibold, marginRight: 8 },
+  input: { flex: 1, color: colors.ink, fontSize: fontSizes.base, fontWeight: fontWeights.medium, paddingVertical: 9 },
   textArea: { minHeight: 78, textAlignVertical: 'top' },
   button: {
-    minHeight: 48,
+    minHeight: 46,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -630,7 +643,7 @@ export const styles = StyleSheet.create({
   dangerButton: { backgroundColor: colors.red },
   outlineDangerButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.red },
   ghostButton: { backgroundColor: 'transparent' },
-  buttonText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  buttonText: { color: '#fff', fontWeight: fontWeights.semibold, fontSize: fontSizes.md },
   secondaryButtonText: { color: colors.ink },
   outlineDangerText: { color: colors.red },
   disabled: { opacity: 0.45 },
@@ -638,11 +651,11 @@ export const styles = StyleSheet.create({
   shopCard: { gap: 8, padding: 10, borderRadius: 16 },
   shopCardRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   shopInfo: { flex: 1, minWidth: 0, gap: 2 },
-  shopTitle: { fontSize: 16, lineHeight: 20, fontWeight: '800', color: colors.ink, flexShrink: 1 },
-  shopType: { color: colors.muted, fontWeight: '600', fontSize: 13 },
+  shopTitle: { fontSize: fontSizes.base, lineHeight: lineHeights.base, fontWeight: fontWeights.semibold, color: colors.ink, flexShrink: 1 },
+  shopType: { color: colors.muted, fontWeight: fontWeights.medium, fontSize: fontSizes.sm },
   shopMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginTop: 2 },
   shopMetaText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  shopMetaDot: { color: '#cbd5e1', fontSize: 10, fontWeight: '900' },
+  shopMetaDot: { color: '#cbd5e1', fontSize: 10, fontWeight: '700' },
   shopSecondary: { color: colors.muted, fontSize: 12, fontWeight: '600', marginTop: 2 },
   productCard: { width: 126, gap: 8, padding: 10, position: 'relative' },
   productListCard: { padding: 10 },
@@ -667,18 +680,18 @@ export const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   productListThumb: {
-    width: 76,
-    height: 76,
+    width: 70,
+    height: 70,
     borderRadius: 14,
     backgroundColor: '#f5f3ff',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center'
   },
-  thumbText: { color: colors.primary, fontWeight: '900', fontSize: 24 },
+  thumbText: { color: colors.primary, fontWeight: '700', fontSize: 24 },
   image: { width: '100%', height: '100%' },
-  price: { color: colors.ink, fontWeight: '800', fontSize: 16 },
-  productTitle: { color: colors.ink, fontWeight: '800', fontSize: 12, minHeight: 32 },
+  price: { color: colors.ink, fontWeight: fontWeights.semibold, fontSize: fontSizes.lg },
+  productTitle: { color: colors.ink, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm, minHeight: 30 },
   productMeta: { color: colors.muted, fontWeight: '600', fontSize: 10 },
   addFab: {
     position: 'absolute',
@@ -694,9 +707,9 @@ export const styles = StyleSheet.create({
   metaPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   pill: { backgroundColor: '#f8fafc', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: colors.muted, fontSize: 11, fontWeight: '700' },
   badge: { minHeight: 24, maxHeight: 28, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, alignSelf: 'flex-start', justifyContent: 'center' },
-  badgeText: { color: colors.ink, fontSize: 10, fontWeight: '800' },
+  badgeText: { color: colors.ink, fontSize: 10, fontWeight: '600' },
   miniStatusBadge: { minHeight: 26, borderRadius: 999, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  miniStatusText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  miniStatusText: { color: colors.ink, fontSize: 11, fontWeight: '600' },
   greenBadge: { backgroundColor: '#dcfce7' },
   redBadge: { backgroundColor: '#fee2e2' },
   amberBadge: { backgroundColor: '#fef3c7' },
@@ -724,9 +737,9 @@ export const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   activeCategoryIcon: { backgroundColor: colors.primary },
-  categoryIconText: { color: colors.primary, fontWeight: '900', fontSize: 18 },
+  categoryIconText: { color: colors.primary, fontWeight: '700', fontSize: 18 },
   activeCategoryIconText: { color: '#fff' },
-  categoryTitle: { color: colors.ink, fontWeight: '800', fontSize: 11, textAlign: 'center', lineHeight: 13 },
+  categoryTitle: { color: colors.ink, fontWeight: '600', fontSize: 11, textAlign: 'center', lineHeight: 13 },
   categorySubtitle: { color: colors.muted, fontWeight: '600', fontSize: 9, textAlign: 'center' },
   iconBubble: {
     width: 42,
@@ -744,7 +757,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  errorText: { color: colors.error, fontSize: 12, fontWeight: '800', marginTop: 4 },
+  errorText: { color: colors.error, fontSize: 12, fontWeight: '600', marginTop: 4 },
   paymentOption: {
     minHeight: 70,
     borderWidth: 1,
@@ -758,7 +771,7 @@ export const styles = StyleSheet.create({
   paymentSelected: { borderColor: colors.primary, backgroundColor: '#F5F3FF' },
   paymentDisabled: { opacity: 0.62, backgroundColor: '#F9FAFB' },
   comingSoonBadge: { borderRadius: 999, backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 4 },
-  comingSoonText: { color: colors.muted, fontSize: 10, fontWeight: '900' },
+  comingSoonText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
   locationAction: {
     minHeight: 52,
     borderWidth: 1,
@@ -770,7 +783,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10
   },
-  locationActionText: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  locationActionText: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   searchShell: {
     minHeight: 44,
     borderRadius: 14,
@@ -787,7 +800,7 @@ export const styles = StyleSheet.create({
   modeTabs: { flexDirection: 'row', gap: 8 },
   modeTab: {
     flex: 1,
-    minHeight: 54,
+    minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -807,7 +820,7 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2
   },
-  modeTabText: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  modeTabText: { color: colors.ink, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold },
   modeTabTextActive: { color: colors.primary },
   modeTabImage: { width: 24, height: 24, resizeMode: 'contain' },
   modeCategoryList: { gap: 12, paddingRight: 4 },
@@ -819,9 +832,9 @@ export const styles = StyleSheet.create({
   },
   modeCategoryCardActive: { opacity: 1 },
   modeCategoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     backgroundColor: '#F3EEFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -829,13 +842,13 @@ export const styles = StyleSheet.create({
     borderColor: '#EDE9FE'
   },
   modeCategoryIconActive: { backgroundColor: '#F5F3FF', borderColor: colors.primary },
-  modeCategoryImage: { width: 42, height: 42, resizeMode: 'contain' },
-  modeCategoryTitle: { color: colors.ink, fontSize: 12, lineHeight: 15, fontWeight: '800', textAlign: 'center' },
+  modeCategoryImage: { width: 38, height: 38, resizeMode: 'contain' },
+  modeCategoryTitle: { color: colors.ink, fontSize: fontSizes.sm, lineHeight: lineHeights.xs, fontWeight: fontWeights.semibold, textAlign: 'center' },
   homeFooterSections: { gap: 14, paddingBottom: 4 },
   homeSectionBlock: { gap: 10 },
   homeProductRail: { gap: 10, paddingRight: 4 },
   searchHeader: { gap: 12 },
-  searchTitle: { fontSize: 20, lineHeight: 26, fontWeight: '800', color: colors.ink },
+  searchTitle: { fontSize: fontSizes.xl, lineHeight: lineHeights.xl, fontWeight: fontWeights.bold, color: colors.ink },
   filterChipRow: { gap: 8, paddingRight: 4 },
   filterChip: {
     minHeight: 36,
@@ -848,10 +861,10 @@ export const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   filterChipActive: { borderColor: colors.primary, backgroundColor: '#F5F3FF' },
-  filterChipText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  filterChipText: { color: colors.ink, fontSize: 12, fontWeight: '600' },
   filterChipTextActive: { color: colors.primary },
   countPill: { minHeight: 28, borderRadius: 999, backgroundColor: '#F5F3FF', paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  countPillText: { color: colors.primary, fontSize: 11, fontWeight: '800' },
+  countPillText: { color: colors.primary, fontSize: 11, fontWeight: '600' },
   resultTabs: {
     flexDirection: 'row',
     gap: 8,
@@ -878,10 +891,347 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2
   },
-  resultTabText: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+  resultTabText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   resultTabTextActive: { color: colors.primary },
-  resultTabCount: { color: colors.muted, fontSize: 11, fontWeight: '900' },
+  resultTabCount: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   resultTabCountActive: { color: colors.primary },
+  restaurantContent: { paddingTop: 4, gap: spacing.md },
+  shopDetailsHeaderBlock: { gap: spacing.md },
+  shopDetailsTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 2
+  },
+  roundIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3
+  },
+  shopDetailsTitle: { color: colors.ink, fontSize: fontSizes.lg, lineHeight: lineHeights.lg, fontWeight: fontWeights.bold },
+  shopDetailsMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 3 },
+  shopDetailsMetaText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  restaurantInfoCard: { gap: 12, padding: 12, borderRadius: 20 },
+  restaurantInfoTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  restaurantLogo: {
+    width: 106,
+    height: 88,
+    borderRadius: 16,
+    backgroundColor: '#F3EEFF',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  restaurantRatingBadge: {
+    minHeight: 26,
+    borderRadius: 8,
+    backgroundColor: colors.success,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  restaurantRatingText: { color: '#fff', fontSize: fontSizes.sm, fontWeight: fontWeights.bold },
+  readMoreRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2, alignSelf: 'flex-start' },
+  restaurantMetrics: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6
+  },
+  restaurantMetric: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 },
+  metricIconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  restaurantMetricValue: { color: colors.ink, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold },
+  restaurantMetricLabel: { color: colors.muted, fontSize: fontSizes.xs, fontWeight: fontWeights.medium, marginTop: 1 },
+  closedNotice: { color: colors.warning, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm },
+  offerBanner: {
+    minHeight: 70,
+    borderRadius: 18,
+    borderColor: '#DDD6FE',
+    backgroundColor: '#F5F3FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  offerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  offerTitle: { color: colors.primary, fontSize: fontSizes.base, fontWeight: fontWeights.bold },
+  offerText: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, marginTop: 2 },
+  dishFilterRow: { gap: 8, paddingRight: 4 },
+  dishFilterChip: {
+    minHeight: 42,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7
+  },
+  dishFilterChipActive: { borderColor: colors.primary, backgroundColor: '#F5F3FF' },
+  dishFilterText: { color: colors.ink, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold },
+  dishFilterTextActive: { color: colors.primary },
+  shopDetailsSection: { gap: 10 },
+  recommendedGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+  recommendedGridItem: { width: '48.4%' },
+  recommendedRail: { gap: 12, paddingRight: 16 },
+  recommendedDishCard: {
+    width: '100%',
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    shadowColor: '#111827',
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3
+  },
+  recommendedImageWrap: {
+    width: '100%',
+    aspectRatio: 1.35,
+    backgroundColor: '#F3EEFF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  recommendedBody: { padding: 9, gap: 5 },
+  recommendedTitle: { color: colors.ink, fontSize: fontSizes.md, lineHeight: lineHeights.md, fontWeight: fontWeights.semibold, minHeight: 34 },
+  vegMarker: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#16A34A',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  vegMarkerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#16A34A' },
+  nonVegMarkerDot: { backgroundColor: '#DC2626' },
+  bestsellerBadge: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    minHeight: 24,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  bestsellerText: { color: colors.primary, fontSize: 11, fontWeight: '700' },
+  outlineAddButton: {
+    minWidth: 62,
+    minHeight: 34,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12
+  },
+  outlineAddText: { color: colors.primary, fontSize: fontSizes.sm, fontWeight: fontWeights.bold },
+  menuChipRow: { gap: 8, paddingRight: 4 },
+  menuChip: {
+    minHeight: 42,
+    borderRadius: 999,
+    paddingHorizontal: 17,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  menuChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  menuChipText: { color: colors.ink, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold },
+  menuChipTextActive: { color: '#fff' },
+  groceryTopRail: { gap: 10, paddingRight: 16 },
+  groceryTopCard: {
+    width: 142,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    shadowColor: '#111827',
+    shadowOpacity: 0.06,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
+  },
+  groceryTopImage: {
+    width: '100%',
+    height: 108,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  groceryTopBody: { padding: 9, gap: 5 },
+  groceryBrand: { color: colors.muted, fontSize: fontSizes.xs, fontWeight: fontWeights.medium },
+  groceryProductTitle: { color: colors.ink, fontSize: fontSizes.md, lineHeight: lineHeights.md, fontWeight: fontWeights.semibold },
+  groceryOfferBadge: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    minHeight: 22,
+    borderRadius: 999,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  groceryOfferText: { color: colors.primary, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold },
+  groceryCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 10,
+    rowGap: 12
+  },
+  groceryCategoryTile: {
+    width: '22.8%',
+    alignItems: 'center',
+    gap: 6
+  },
+  groceryCategoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  groceryCategoryText: { color: colors.ink, fontSize: fontSizes.xs, lineHeight: lineHeights.xs, fontWeight: fontWeights.semibold, textAlign: 'center' },
+  groceryGroupTitle: { color: colors.ink, fontSize: fontSizes.lg, fontWeight: fontWeights.bold, marginTop: 4 },
+  groceryListCard: { padding: 10, borderRadius: 16 },
+  groceryListRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  groceryListImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 14,
+    backgroundColor: '#F5F3FF',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  quickViewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17,24,39,0.36)',
+    justifyContent: 'flex-end'
+  },
+  quickViewBackdropPress: { flex: 1 },
+  quickViewSheet: {
+    maxHeight: '86%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: colors.card,
+    overflow: 'hidden'
+  },
+  quickViewContent: { paddingBottom: 8 },
+  quickViewImageWrap: {
+    width: '100%',
+    height: 250,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  quickViewImageFallbackWrap: {
+    width: '100%',
+    height: 132,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  quickViewClose: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  quickViewBody: { padding: 16, gap: 8 },
+  quickViewTitle: { color: colors.ink, fontSize: fontSizes.xl, lineHeight: lineHeights.xl, fontWeight: fontWeights.bold },
+  quickRatingBadge: {
+    minHeight: 24,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  quickRatingText: { color: colors.success, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold },
+  quickViewFooter: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: '#fff'
+  },
+  quickInCartRow: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  quickAddButton: {
+    minHeight: 48,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  quickAddText: { color: '#fff', fontSize: fontSizes.base, fontWeight: fontWeights.semibold },
   fixedFooter: {
     position: 'absolute',
     left: 16,
@@ -903,8 +1253,8 @@ export const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   empty: { alignItems: 'center', gap: 8 },
   emptyIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#ede9fe', alignItems: 'center', justifyContent: 'center' },
-  emptyIconText: { color: colors.primary, fontWeight: '900' },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
+  emptyIconText: { color: colors.primary, fontWeight: '700' },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.ink },
   productListActions: { alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', gap: 8, maxWidth: 112 },
   productMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 },
   traitBadge: { minHeight: 22, borderRadius: 999, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
@@ -921,10 +1271,12 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 82,
     minHeight: 64,
+    maxHeight: 72,
     borderRadius: 22,
-    backgroundColor: '#111827',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -935,12 +1287,33 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 10
   },
-  cartPreviewImages: { width: 72, flexDirection: 'row', alignItems: 'center' },
-  cartPreviewThumb: { width: 34, height: 34, borderRadius: 11, backgroundColor: '#fff', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
-  cartPreviewTitle: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  cartPreviewSubtitle: { color: '#d1d5db', fontWeight: '600', fontSize: 12, marginTop: 2 },
+  cartPreviewIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  cartPreviewCount: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4
+  },
+  cartPreviewCountText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  cartPreviewTitle: { color: colors.ink, fontWeight: fontWeights.semibold, fontSize: fontSizes.md },
+  cartPreviewSubtitle: { color: colors.muted, fontWeight: fontWeights.semibold, fontSize: fontSizes.sm, marginTop: 2 },
   cartPreviewCta: { minHeight: 42, borderRadius: 16, backgroundColor: colors.primary, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cartPreviewCtaText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  cartPreviewCtaText: { color: '#fff', fontWeight: '600', fontSize: 12 },
   checkoutFooter: { gap: 10, padding: 12, borderRadius: 22 },
   orderFooter: {
     gap: 8,
@@ -952,11 +1325,11 @@ export const styles = StyleSheet.create({
   },
   footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
   footerSummaryLabel: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  footerSummaryValue: { color: colors.ink, fontSize: 18, fontWeight: '800' },
+  footerSummaryValue: { color: colors.ink, fontSize: 18, fontWeight: '600' },
   addSmallButton: { minHeight: 34, borderRadius: 11, paddingHorizontal: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  addSmallText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  addSmallText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 999, overflow: 'hidden', backgroundColor: '#fff' },
   stepButton: { minWidth: 30, minHeight: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
-  stepText: { color: colors.primary, fontSize: 18, fontWeight: '900' },
-  stepValue: { minWidth: 30, textAlign: 'center', color: colors.ink, fontWeight: '800', fontSize: 12 }
+  stepText: { color: colors.primary, fontSize: 18, fontWeight: '700' },
+  stepValue: { minWidth: 30, textAlign: 'center', color: colors.ink, fontWeight: '600', fontSize: 12 }
 });

@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Loader } from '../components/ui';
@@ -23,7 +24,7 @@ const Tabs = createBottomTabNavigator();
 
 function HomeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ShopDetails" component={ShopDetailsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} options={{ title: 'Product Details' }} />
@@ -33,18 +34,18 @@ function HomeStack() {
 
 function OrdersStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="OrdersMain" component={OrdersScreen} options={{ title: 'My Orders' }} />
-      <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} options={{ title: 'Order Details' }} />
+      <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
 
 function CartStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="CartMain" component={CartScreen} options={{ title: 'Cart' }} />
-      <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+      <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ headerShown: false }} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} options={{ title: 'Order Success' }} />
     </Stack.Navigator>
   );
@@ -66,6 +67,19 @@ function AppTabs() {
   const insets = useSafeAreaInsets();
   const cartQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const bottomInset = Math.max(insets.bottom, 8);
+  const baseTabBarStyle = {
+    height: 56 + bottomInset,
+    paddingTop: 6,
+    paddingBottom: bottomInset,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    backgroundColor: '#fff',
+    shadowColor: '#111827',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 10
+  };
 
   return (
     <Tabs.Navigator
@@ -74,21 +88,16 @@ function AppTabs() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontWeight: '800', fontSize: 11, marginTop: 1 },
+        tabBarLabelStyle: { fontWeight: '600', fontSize: 10, marginTop: 1 },
         tabBarItemStyle: { paddingVertical: 4 },
-        tabBarStyle: {
-          height: 56 + bottomInset,
-          paddingTop: 6,
-          paddingBottom: bottomInset,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          backgroundColor: '#fff',
-          shadowColor: '#111827',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -4 },
-          elevation: 10
-        },
+        tabBarStyle:
+          route.name === 'Home' && ['ShopDetails', 'ProductDetails'].includes(getFocusedRouteNameFromRoute(route) || '')
+            ? { display: 'none' }
+            : route.name === 'Cart' && ['Checkout', 'OrderSuccess'].includes(getFocusedRouteNameFromRoute(route) || '')
+              ? { display: 'none' }
+              : route.name === 'Orders' && ['OrderDetails'].includes(getFocusedRouteNameFromRoute(route) || '')
+            ? { display: 'none' }
+            : baseTabBarStyle,
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name={getTabIcon(route.name, focused)} size={focused ? 23 : 22} color={color} />
         )
@@ -102,7 +111,7 @@ function AppTabs() {
         component={CartStack}
         options={{
           tabBarBadge: cartQuantity > 0 ? cartQuantity : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontWeight: '900' }
+          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontWeight: '700' }
         }}
       />
       <Tabs.Screen name="Profile" component={ProfileScreen} />

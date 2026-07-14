@@ -1,13 +1,18 @@
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getApiError } from '../api/client';
 import { productApi, shopApi } from '../api/services';
 import { CompactLocationHeader, EmptyState, Loader, ProductCard, ProductListCard, SearchBar, SectionHeader, ShopCard, styles } from '../components/ui';
+import { colors } from '../constants';
+import { useActiveOrder } from '../context/ActiveOrderContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
+import { getOrderStatusMeta } from '../utils/orderStatus';
 
 const MODE_STORAGE_KEY = 'lvm_customer_home_mode';
 const twemoji = (code) => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${code}.png`;
@@ -99,6 +104,7 @@ const matchesModeCategory = (product, category) => {
 
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
+  const { activeOrder, refreshActiveOrder, orderNumber, shopName, totalAmount, itemCount, estimatedDeliveryTime, currentStatus } = useActiveOrder();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const [allShops, setAllShops] = useState([]);
@@ -134,6 +140,12 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshActiveOrder({ silent: true, notify: true });
+    }, [refreshActiveOrder])
+  );
 
   useEffect(() => {
     AsyncStorage.getItem(MODE_STORAGE_KEY)
@@ -259,6 +271,18 @@ export default function HomeScreen({ navigation }) {
         placeholder={activeConfig.searchPlaceholder}
       />
 
+      {activeOrder ? (
+        <ActiveOrderCard
+          status={currentStatus}
+          shopName={shopName}
+          orderNumber={orderNumber}
+          itemCount={itemCount}
+          totalAmount={totalAmount}
+          eta={estimatedDeliveryTime}
+          onPress={() => navigation.getParent()?.navigate('Orders', { screen: 'OrderDetails', params: { order: activeOrder } })}
+        />
+      ) : null}
+
       <View style={{ gap: 9 }}>
         <SectionHeader title={activeConfig.categoryTitle} action={selectedCategory ? 'Clear' : 'See all'} onAction={() => setSelectedCategory(null)} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeCategoryList}>
@@ -282,7 +306,7 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title={activeConfig.shopTitle} action="View all" onAction={() => setSelectedCategory(null)} />
       )}
     </View>
-  ), [activeConfig, activeMode, captureLocation, filteredProducts.length, filteredShops.length, location, locationError, locationLoading, noSearchResults, openProfile, search, selectMode, selectedCategory, showToast]);
+  ), [activeConfig, activeMode, activeOrder, captureLocation, currentStatus, estimatedDeliveryTime, filteredProducts.length, filteredShops.length, itemCount, location, locationError, locationLoading, navigation, noSearchResults, openProfile, orderNumber, search, selectMode, selectedCategory, shopName, showToast, totalAmount]);
 
   const footerComponent = useMemo(() => {
     if (noSearchResults) return null;
@@ -362,3 +386,53 @@ export default function HomeScreen({ navigation }) {
     />
   );
 }
+
+function ActiveOrderCard({ status, shopName, orderNumber, itemCount, totalAmount, eta, onPress }) {
+  const meta = getOrderStatusMeta(status);
+
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [homeOrderStyles.card, { backgroundColor: meta.bg, borderColor: `${meta.color}30` }, pressed ? styles.pressed : null]}>
+      <View style={[homeOrderStyles.iconBubble, { backgroundColor: meta.color }]}>
+        <Ionicons name={meta.icon} size={20} color="#fff" />
+      </View>
+      <View style={styles.flex}>
+        <View style={styles.between}>
+          <Text style={homeOrderStyles.statusText}>{meta.label}</Text>
+          {eta ? <Text style={homeOrderStyles.etaText}>{eta}</Text> : null}
+        </View>
+        <Text style={homeOrderStyles.title} numberOfLines={1}>{shopName}</Text>
+        <Text style={homeOrderStyles.message} numberOfLines={2}>{meta.progressText(shopName)}</Text>
+        <Text style={homeOrderStyles.meta}>#{orderNumber} - {itemCount} {itemCount === 1 ? 'item' : 'items'} - Rs.{Number(totalAmount || 0)}</Text>
+      </View>
+      <View style={homeOrderStyles.viewPill}>
+        <Text style={homeOrderStyles.viewText}>View</Text>
+        <Ionicons name="chevron-forward" size={15} color={colors.primary} />
+      </View>
+    </Pressable>
+  );
+}
+
+const homeOrderStyles = StyleSheet.create({
+  card: {
+    minHeight: 92,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    shadowColor: '#111827',
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3
+  },
+  iconBubble: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  statusText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  etaText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+  title: { color: colors.ink, fontSize: 15, fontWeight: '700', marginTop: 2 },
+  message: { color: colors.muted, fontSize: 12, lineHeight: 17, fontWeight: '500', marginTop: 2 },
+  meta: { color: colors.muted, fontSize: 11, fontWeight: '600', marginTop: 5 },
+  viewPill: { minHeight: 34, borderRadius: 999, backgroundColor: '#fff', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  viewText: { color: colors.primary, fontSize: 12, fontWeight: '700' }
+});

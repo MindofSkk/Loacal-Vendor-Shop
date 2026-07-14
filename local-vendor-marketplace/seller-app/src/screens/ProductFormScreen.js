@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { productApi } from '../api/services';
 import { Button, Card, Input, OptionRow, styles } from '../components/ui';
@@ -120,11 +121,22 @@ export default function ProductFormScreen({ route, navigation }) {
         <Text style={styles.subheading}>{product?._id ? 'Edit product' : 'Add product'}</Text>
         <Text style={styles.muted}>{businessType}</Text>
       </Card>
-      <Card style={{ gap: 12 }}>
+      <Card style={formStyles.section}>
+        <Text style={styles.subheading}>Basic Info</Text>
         <Input label={businessType === 'Restaurant' ? 'Item name' : 'Product name'} value={form.name} error={errors.name} onChangeText={(name) => setForm({ ...form, name })} />
         <Input label="Description" multiline value={form.description} onChangeText={(description) => setForm({ ...form, description })} />
-        <Input label="Price" keyboardType="numeric" value={form.price} error={errors.price} onChangeText={(price) => setForm({ ...form, price })} />
+      </Card>
 
+      <Card style={formStyles.section}>
+        <Text style={styles.subheading}>Pricing & Inventory</Text>
+        <Input label="Price" keyboardType="numeric" value={form.price} error={errors.price} onChangeText={(price) => setForm({ ...form, price })} />
+        {businessType === 'Grocery / Kirana Store' ? (
+          <Input label="Stock quantity" keyboardType="number-pad" value={form.stock} error={errors.stock} onChangeText={(stock) => setForm({ ...form, stock })} />
+        ) : null}
+      </Card>
+
+      <Card style={formStyles.section}>
+        <Text style={styles.subheading}>Category & Visibility</Text>
         {businessType === 'Restaurant' ? (
           <>
             <Text style={styles.label}>Veg / Non-Veg</Text>
@@ -138,7 +150,6 @@ export default function ProductFormScreen({ route, navigation }) {
           <>
             <Input label="Brand" value={form.brand} onChangeText={(brand) => setForm({ ...form, brand })} />
             <Input label="Quantity / Pack size" value={form.packSize} onChangeText={(packSize) => setForm({ ...form, packSize })} />
-            <Input label="Stock quantity" keyboardType="number-pad" value={form.stock} error={errors.stock} onChangeText={(stock) => setForm({ ...form, stock })} />
             <Text style={styles.label}>Category</Text>
             <OptionRow options={groceryCategories} value={form.groceryCategory} onChange={(groceryCategory) => setForm({ ...form, groceryCategory })} />
           </>
@@ -161,16 +172,29 @@ export default function ProductFormScreen({ route, navigation }) {
 
         <Text style={styles.label}>Availability</Text>
         <OptionRow options={['active', 'inactive']} value={form.status} onChange={(status) => setForm({ ...form, status })} />
+      </Card>
+
+      <Card style={formStyles.section}>
+        <View style={styles.between}>
+          <View>
+            <Text style={styles.subheading}>Images</Text>
+            <Text style={styles.muted}>Upload up to 3 images. Select one thumbnail.</Text>
+          </View>
+          <Pressable onPress={pickImages} style={formStyles.imageAction}>
+            <Ionicons name="images-outline" size={18} color="#049B4F" />
+            <Text style={formStyles.imageActionText}>Upload</Text>
+          </Pressable>
+        </View>
         {thumbnailOptions.length ? (
           <View style={{ gap: 10 }}>
             <Text style={styles.label}>Thumbnail image</Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
               {thumbnailOptions.slice(0, 3).map((option) => (
                 <Pressable
                   key={`${option.label}-${option.index}`}
                   onPress={() => setThumbnailIndex(String(option.index))}
                   style={{
-                    width: 82,
+                    width: 92,
                     gap: 6,
                     borderWidth: 2,
                     borderColor: String(thumbnailIndex) === String(option.index) ? '#049B4F' : '#E5E7EB',
@@ -178,13 +202,21 @@ export default function ProductFormScreen({ route, navigation }) {
                     padding: 6
                   }}
                 >
-                  <Image source={{ uri: option.uri }} style={{ height: 64, borderRadius: 12 }} />
+                  <Image source={{ uri: option.uri }} style={{ height: 70, borderRadius: 12 }} />
                   <Text style={styles.small} numberOfLines={1}>{String(thumbnailIndex) === String(option.index) ? 'Thumbnail' : option.label}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
-        ) : null}
+        ) : (
+          <View style={formStyles.emptyImageBox}>
+            <Ionicons name="image-outline" size={28} color="#049B4F" />
+            <Text style={styles.muted}>No images selected</Text>
+          </View>
+        )}
+      </Card>
+
+      <Card style={formStyles.section}>
         <View style={styles.row}>
           <Button title="Pick images" variant="secondary" onPress={pickImages} style={styles.flex} />
           <Button title="Save" loading={saving} onPress={save} style={styles.flex} />
@@ -193,3 +225,10 @@ export default function ProductFormScreen({ route, navigation }) {
     </ScrollView>
   );
 }
+
+const formStyles = StyleSheet.create({
+  section: { gap: 12 },
+  imageAction: { minHeight: 36, borderRadius: 999, backgroundColor: '#ECFDF5', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  imageActionText: { color: '#049B4F', fontSize: 12, fontWeight: '600' },
+  emptyImageBox: { minHeight: 96, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: '#BBF7D0', backgroundColor: '#F8FFFB', alignItems: 'center', justifyContent: 'center', gap: 8 }
+});

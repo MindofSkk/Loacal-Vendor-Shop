@@ -1,6 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Loader } from '../components/ui';
 import { colors } from '../constants';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +22,7 @@ const Tabs = createBottomTabNavigator();
 
 function DashboardStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="DashboardMain" component={DashboardScreen} options={{ title: 'Dashboard' }} />
       <Stack.Screen name="ShopProfile" component={ShopProfileScreen} options={{ title: 'Shop Profile' }} />
       <Stack.Screen name="DeliveryBoys" component={DeliveryBoysScreen} options={{ title: 'Delivery Boys' }} />
@@ -30,7 +32,7 @@ function DashboardStack() {
 
 function ProductsStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="ProductsMain" component={ProductsScreen} options={{ title: 'Products' }} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} options={{ title: 'Product Form' }} />
     </Stack.Navigator>
@@ -39,7 +41,7 @@ function ProductsStack() {
 
 function OrdersStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="OrdersMain" component={OrdersScreen} options={{ title: 'Orders' }} />
       <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} options={{ title: 'Order Details' }} />
     </Stack.Navigator>
@@ -48,7 +50,7 @@ function OrdersStack() {
 
 function SettingsStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '900' } }}>
+    <Stack.Navigator screenOptions={{ headerTitleStyle: { fontWeight: '600', fontSize: 17 } }}>
       <Stack.Screen name="SettingsMain" component={BusinessSettingsScreen} options={{ title: 'Business Settings' }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Stack.Navigator>
@@ -66,20 +68,33 @@ function getTabIcon(routeName, focused) {
 }
 
 function AppTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
+  const baseTabBarStyle = {
+    height: 54 + bottomInset,
+    paddingTop: 6,
+    paddingBottom: bottomInset,
+    borderTopColor: colors.border,
+    backgroundColor: '#fff'
+  };
+
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontWeight: '900', fontSize: 12 },
-        tabBarStyle: {
-          height: 68,
-          paddingTop: 8,
-          paddingBottom: 10,
-          borderTopColor: colors.border,
-          backgroundColor: '#fff'
-        },
+        tabBarLabelStyle: { fontWeight: '600', fontSize: 10 },
+        tabBarStyle:
+          route.name === 'Dashboard' && ['ShopProfile', 'DeliveryBoys'].includes(getFocusedRouteNameFromRoute(route) || '')
+            ? { display: 'none' }
+            : route.name === 'Products' && ['ProductForm'].includes(getFocusedRouteNameFromRoute(route) || '')
+              ? { display: 'none' }
+              : route.name === 'Orders' && ['OrderDetails'].includes(getFocusedRouteNameFromRoute(route) || '')
+                ? { display: 'none' }
+                : route.name === 'Settings' && ['Profile'].includes(getFocusedRouteNameFromRoute(route) || '')
+                  ? { display: 'none' }
+                  : baseTabBarStyle,
         tabBarIcon: ({ color, focused }) => (
           <Ionicons name={getTabIcon(route.name, focused)} size={22} color={color} />
         )

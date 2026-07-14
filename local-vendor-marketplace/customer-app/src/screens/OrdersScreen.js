@@ -1,16 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
 import { EmptyState, Loader, OrderCard, SectionHeader, styles } from '../components/ui';
 import { colors } from '../constants';
+import { useActiveOrder } from '../context/ActiveOrderContext';
 import { useToast } from '../context/ToastContext';
 
 const tabs = ['All', 'Ongoing', 'Delivered', 'Cancelled'];
 
 export default function OrdersScreen({ navigation }) {
   const { showToast } = useToast();
+  const { latestOrder, refreshActiveOrder } = useActiveOrder();
   const [orders, setOrders] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -32,8 +34,20 @@ export default function OrdersScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      refreshActiveOrder({ silent: true, notify: true });
+    }, [load, refreshActiveOrder])
   );
+
+  useEffect(() => {
+    if (!latestOrder?._id) return;
+    setOrders((current) => {
+      const exists = current.some((order) => order._id === latestOrder._id);
+      if (exists) {
+        return current.map((order) => (order._id === latestOrder._id ? { ...order, ...latestOrder } : order));
+      }
+      return [latestOrder, ...current];
+    });
+  }, [latestOrder]);
 
   const filteredOrders = useMemo(() => {
     if (activeTab === 'All') return orders;
@@ -63,7 +77,7 @@ export default function OrdersScreen({ navigation }) {
               borderColor: activeTab === tab ? colors.primary : colors.border
             }}
           >
-            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{tab}</Text>
+            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '600', fontSize: 12 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>

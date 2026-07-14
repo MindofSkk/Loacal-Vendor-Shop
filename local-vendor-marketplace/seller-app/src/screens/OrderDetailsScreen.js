@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { orderApi } from '../api/services';
@@ -38,8 +38,15 @@ export default function OrderDetailsScreen({ route, navigation }) {
   const [order, setOrder] = useState(route.params.order);
   const [selectedPhone, setSelectedPhone] = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
+  const itemCount = order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const createdAt = order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Just now';
+  const customerPhone = order.deliveryAddress?.phone || order.customer?.phone || 'N/A';
+  const deliveryAddress = order.deliveryAddress?.fullAddress || 'Address not available';
+  const timeline = ['Pending', 'Accepted', 'Packed', 'Out for Delivery', 'Delivered'];
+  const activeIndex = Math.max(0, timeline.indexOf(order.status));
 
   const updateStatus = async (status) => {
+    if (statusLoading) return;
     if (status === order.status) return;
     setStatusLoading(true);
     try {
@@ -69,24 +76,44 @@ export default function OrderDetailsScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={[styles.hero, { gap: 10 }]}>
-        <View style={styles.between}>
-          <Text style={styles.heading}>#{order._id.slice(-6)}</Text>
+      <Card style={detailStyles.hero}>
+        <View style={detailStyles.heroTop}>
+          <View style={detailStyles.shopThumb}>
+            {order.shop?.logoUrl ? <Image source={{ uri: order.shop.logoUrl }} style={styles.image} /> : <Ionicons name="receipt-outline" size={34} color={colors.primary} />}
+          </View>
+          <View style={styles.flex}>
+            <Text style={detailStyles.shopName} numberOfLines={2}>{order.shop?.name || 'Order Details'}</Text>
+            <Text style={styles.muted}>Order #{order._id.slice(-6).toUpperCase()}</Text>
+            <Text style={styles.small}>{createdAt}</Text>
+            <View style={detailStyles.chipRow}>
+              <Text style={detailStyles.chip}>{itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
+              <Text style={detailStyles.chip}>Rs.{order.subtotal}</Text>
+            </View>
+          </View>
           <StatusBadge status={order.status} />
         </View>
-        <Text style={styles.title}>{order.customer?.name}</Text>
-        <Text style={styles.muted}>Phone: {order.deliveryAddress?.phone || order.customer?.phone}</Text>
-        <Text style={styles.price}>Rs.{order.subtotal}</Text>
       </Card>
-      <Card style={{ gap: 10 }}>
-        <Text style={styles.subheading}>Customer Info</Text>
-        <InfoRow label="Name" value={order.customer?.name || 'Customer'} />
-        <InfoRow label="Phone" value={order.deliveryAddress?.phone || order.customer?.phone || 'N/A'} />
+      <Card style={detailStyles.timelineCard}>
+        {timeline.map((status, index) => {
+          const completed = index < activeIndex;
+          const current = index === activeIndex;
+          const icon = status === 'Pending' ? 'checkmark' : status === 'Accepted' ? 'checkmark' : status === 'Packed' ? 'restaurant-outline' : status === 'Out for Delivery' ? 'bicycle-outline' : 'home-outline';
+          return (
+            <View key={status} style={detailStyles.timelineStep}>
+              <View style={[detailStyles.timelineIcon, completed || current ? detailStyles.timelineIconActive : null]}>
+                <Ionicons name={icon} size={16} color={completed || current ? '#fff' : colors.muted} />
+              </View>
+              <Text style={[detailStyles.timelineText, current ? { color: colors.primary } : null]} numberOfLines={1}>{status === 'Pending' ? 'Placed' : status}</Text>
+            </View>
+          );
+        })}
       </Card>
-      <Card style={{ gap: 10 }}>
-        <Text style={styles.subheading}>Delivery address</Text>
-        <Text style={styles.muted}>{order.deliveryAddress?.fullAddress}</Text>
-        <Text style={styles.muted}>Landmark: {order.deliveryAddress?.landmark || 'N/A'}</Text>
+      <Card style={detailStyles.card}>
+        <Text style={styles.subheading}>Customer & Address</Text>
+        <InfoRow label="Customer" value={order.customer?.name || 'Customer'} />
+        <InfoRow label="Phone" value={customerPhone} />
+        <Text style={styles.muted} numberOfLines={2}>{deliveryAddress}</Text>
+        <Text style={styles.small}>Landmark: {order.deliveryAddress?.landmark || 'N/A'}</Text>
         <View style={styles.row}>
           <Pressable onPress={openMaps} style={[styles.button, styles.secondaryButton, styles.flex, { flexDirection: 'row', gap: 8 }]}>
             <Ionicons name="map-outline" size={20} color={colors.primary} />
@@ -98,7 +125,7 @@ export default function OrderDetailsScreen({ route, navigation }) {
           </Pressable>
         </View>
       </Card>
-      <Card style={{ gap: 8 }}>
+      <Card style={detailStyles.card}>
         <Text style={styles.subheading}>Payment</Text>
         <View style={styles.between}>
           <Text style={styles.muted}>Payment Method</Text>
@@ -109,21 +136,28 @@ export default function OrderDetailsScreen({ route, navigation }) {
           <Text style={styles.title}>{order.paymentStatus === 'NOT_REQUIRED' || !order.paymentStatus ? 'Not Required' : order.paymentStatus}</Text>
         </View>
       </Card>
-      <Card style={{ gap: 8 }}>
-        <Text style={styles.subheading}>Items</Text>
+      <Card style={detailStyles.card}>
+        <Text style={styles.subheading}>Ordered Items</Text>
         {order.items.map((item) => (
-          <View key={`${item.product}-${item.name}`} style={styles.between}>
-            <Text style={styles.muted}>{item.quantity} x {item.name}</Text>
+          <View key={`${item.product}-${item.name}`} style={detailStyles.itemRow}>
+            <View style={detailStyles.itemImage}>
+              {item.image ? <Image source={{ uri: item.image }} style={styles.image} /> : <Ionicons name="cube-outline" size={22} color={colors.primary} />}
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.muted}>Rs.{item.price} each</Text>
+            </View>
+            <Text style={detailStyles.qty}>Qty {item.quantity}</Text>
             <Text style={styles.title}>Rs.{item.price * item.quantity}</Text>
           </View>
         ))}
       </Card>
-      <Card style={{ gap: 10 }}>
+      <Card style={detailStyles.card}>
         <Text style={styles.subheading}>Update status</Text>
         <OptionRow options={orderStatuses} value={order.status} onChange={updateStatus} />
         {statusLoading ? <Text style={styles.muted}>Updating order status...</Text> : null}
       </Card>
-      <Card style={{ gap: 10 }}>
+      <Card style={detailStyles.card}>
         <Text style={styles.subheading}>Delivery boy</Text>
         {order.shop?.deliveryBoys?.length ? (
           <View style={{ gap: 8 }}>
@@ -155,3 +189,21 @@ export default function OrderDetailsScreen({ route, navigation }) {
     </ScrollView>
   );
 }
+
+const detailStyles = StyleSheet.create({
+  hero: { gap: 10, backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' },
+  heroTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  shopThumb: { width: 74, height: 74, borderRadius: 18, overflow: 'hidden', backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+  shopName: { color: colors.ink, fontSize: 18, lineHeight: 23, fontWeight: '600' },
+  chipRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  chip: { color: colors.primary, backgroundColor: '#DCFCE7', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, fontSize: 12, fontWeight: '700' },
+  timelineCard: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  timelineStep: { flex: 1, alignItems: 'center', gap: 6 },
+  timelineIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  timelineIconActive: { backgroundColor: colors.primary },
+  timelineText: { color: colors.muted, fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  card: { gap: 10 },
+  itemRow: { minHeight: 66, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  itemImage: { width: 52, height: 52, borderRadius: 14, overflow: 'hidden', backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+  qty: { color: colors.primary, backgroundColor: '#ECFDF5', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 12, fontWeight: '700' }
+});

@@ -1,11 +1,11 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiError } from '../api/client';
 import { categoryApi, shopApi } from '../api/services';
-import { Button, Card, Input, Loader, OptionRow, styles } from '../components/ui';
-import { businessTypes } from '../constants';
+import { Button, Card, Input, Loader, OptionRow, StatusBadge, styles } from '../components/ui';
+import { businessTypes, colors } from '../constants';
 import { useToast } from '../context/ToastContext';
 
 const emptyShop = {
@@ -29,6 +29,9 @@ export default function ShopProfileScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const shop = route.params?.shop;
+  const approvalStatus = currentShop?.status || 'pending';
+  const addressLine = [form.location.area, form.location.city, form.location.pincode].filter(Boolean).join(', ');
+  const hasCoordinates = form.location.latitude !== '' && form.location.longitude !== '';
 
   const hydrateShop = (nextShop) => {
     if (!nextShop) return;
@@ -140,24 +143,44 @@ export default function ShopProfileScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Card style={[styles.hero, { gap: 12 }]}>
-        <Text style={styles.heading}>{currentShop ? 'Edit shop profile' : 'Create shop profile'}</Text>
-        <Text style={styles.muted}>Keep shop details simple and clear for customers.</Text>
+      <Card style={profileStyles.headerCard}>
+        <View style={profileStyles.logoLarge}>
+          {form.logoUrl ? (
+            <Image source={{ uri: form.logoUrl }} style={styles.image} />
+          ) : (
+            <Ionicons name="storefront-outline" size={42} color={colors.primary} />
+          )}
+        </View>
+        <View style={styles.flex}>
+          <View style={styles.between}>
+            <Text style={profileStyles.shopName} numberOfLines={2}>{form.name || 'Your Shop'}</Text>
+            <StatusBadge status={approvalStatus} />
+          </View>
+          <Text style={styles.muted}>{form.businessType}</Text>
+          <View style={profileStyles.metaRow}>
+            <Text style={profileStyles.metaPill}>4.5 rating</Text>
+            <Text style={profileStyles.metaPill}>{approvalStatus === 'approved' ? 'Verified' : 'Under review'}</Text>
+            <Text style={profileStyles.metaPill}>{currentShop?.isOpen === false ? 'Closed' : 'Open now'}</Text>
+          </View>
+          {addressLine ? <Text style={styles.small} numberOfLines={1}>{addressLine}</Text> : null}
+        </View>
       </Card>
-      <Card style={{ gap: 12 }}>
-        <Text style={styles.subheading}>Basic info</Text>
+      <Card style={profileStyles.section}>
+        <Text style={styles.subheading}>Shop Information</Text>
+        <Text style={styles.muted}>Customer-facing name, contact number and description.</Text>
         <Input label="Shop name" error={errors.name} helper="Example: Spice Junction Restaurant" value={form.name} onChangeText={(name) => setForm({ ...form, name })} />
         <Input label="Shop phone" error={errors.phone} helper="Customers and delivery staff can call this number." keyboardType="phone-pad" value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} />
         <Input label="Description" multiline helper="Short description visible on shop profile." value={form.description} onChangeText={(description) => setForm({ ...form, description })} />
       </Card>
-      <Card style={{ gap: 12 }}>
-        <Text style={styles.subheading}>Business type</Text>
+      <Card style={profileStyles.section}>
+        <Text style={styles.subheading}>Business Details</Text>
         <Text style={styles.muted}>Choose the type that matches your inventory and product form.</Text>
         <OptionRow options={businessTypes} value={form.businessType} onChange={(businessType) => setForm({ ...form, businessType })} />
       </Card>
-      <Card style={{ gap: 12 }}>
-        <Text style={styles.subheading}>Logo</Text>
-        <View style={{ height: 150, borderRadius: 18, backgroundColor: '#ecfdf5', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      <Card style={profileStyles.section}>
+        <Text style={styles.subheading}>Images</Text>
+        <Text style={styles.muted}>Logo appears on customer shop cards. Banner and gallery can be managed when media APIs are added.</Text>
+        <View style={profileStyles.logoPreview}>
           {form.logoUrl ? (
             <Image source={{ uri: form.logoUrl }} style={{ width: '100%', height: '100%' }} />
           ) : (
@@ -167,21 +190,56 @@ export default function ShopProfileScreen({ route, navigation }) {
             </View>
           )}
         </View>
-        <Button title="Upload shop logo" variant="secondary" loading={uploading} onPress={uploadLogo} />
+        <View style={styles.row}>
+          <Button title="Upload Logo" variant="secondary" loading={uploading} onPress={uploadLogo} style={styles.flex} />
+          <Button title="Replace" variant="secondary" loading={uploading} onPress={uploadLogo} style={styles.flex} />
+        </View>
         <Input label="Logo URL" helper="Optional. Uploading from gallery fills this automatically." value={form.logoUrl} onChangeText={(logoUrl) => setForm({ ...form, logoUrl })} />
+        <View style={profileStyles.galleryRow}>
+          {['Banner', 'Gallery 1', 'Gallery 2'].map((item) => (
+            <View key={item} style={profileStyles.galleryTile}>
+              <Ionicons name="image-outline" size={22} color={colors.primary} />
+              <Text style={styles.small}>{item}</Text>
+            </View>
+          ))}
+        </View>
       </Card>
-      <Card style={{ gap: 12 }}>
+      <Card style={profileStyles.section}>
         <Text style={styles.subheading}>Address</Text>
         <Input label="Area" error={errors.area} value={form.location.area} onChangeText={(value) => updateLocation('area', value)} />
         <Input label="City" error={errors.city} value={form.location.city} onChangeText={(value) => updateLocation('city', value)} />
         <Input label="Pincode" error={errors.pincode} keyboardType="number-pad" value={form.location.pincode} onChangeText={(value) => updateLocation('pincode', value)} />
         <Input label="Landmark" helper="Optional nearby landmark for customers." value={form.location.landmark} onChangeText={(value) => updateLocation('landmark', value)} />
       </Card>
-      <Card style={{ gap: 12 }}>
-        <Text style={styles.subheading}>Delivery area</Text>
+      <Card style={profileStyles.section}>
+        <Text style={styles.subheading}>Live Location</Text>
+        <View style={profileStyles.mapPreview}>
+          <Ionicons name={hasCoordinates ? 'location' : 'location-outline'} size={26} color={colors.primary} />
+          <View style={styles.flex}>
+            <Text style={styles.title}>{hasCoordinates ? 'Location attached' : 'Map location not added'}</Text>
+            <Text style={styles.muted}>{hasCoordinates ? 'Customers can calculate distance more accurately.' : 'Use the web panel or API location fields to add precise coordinates.'}</Text>
+          </View>
+        </View>
+        <Button title="Change Location" variant="secondary" onPress={() => showToast({ type: 'info', message: 'Precise location picker is coming soon.' })} />
+      </Card>
+      <Card style={profileStyles.section}>
+        <Text style={styles.subheading}>Delivery</Text>
         <Input label="Delivery radius KM" error={errors.deliveryRadiusKm} helper="Example: 3" keyboardType="numeric" value={String(form.deliveryRadiusKm)} onChangeText={(deliveryRadiusKm) => setForm({ ...form, deliveryRadiusKm })} />
       </Card>
       <Button title="Save shop profile" loading={saving} onPress={save} />
     </ScrollView>
   );
 }
+
+const profileStyles = StyleSheet.create({
+  headerCard: { flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' },
+  logoLarge: { width: 76, height: 76, borderRadius: 22, backgroundColor: '#DCFCE7', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  shopName: { flex: 1, color: colors.ink, fontSize: 19, lineHeight: 24, fontWeight: '600' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  metaPill: { color: colors.primary, backgroundColor: '#DCFCE7', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, fontSize: 11, fontWeight: '600' },
+  section: { gap: 12 },
+  logoPreview: { height: 132, borderRadius: 18, backgroundColor: '#ecfdf5', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  galleryRow: { flexDirection: 'row', gap: 10 },
+  galleryTile: { flex: 1, minHeight: 76, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: '#BBF7D0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FDF4' },
+  mapPreview: { minHeight: 78, borderRadius: 16, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: colors.border, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }
+});

@@ -7,7 +7,7 @@ import { EmptyState, Loader, OrderRow, SearchBar, SectionHeader, styles } from '
 import { colors } from '../constants';
 import { useToast } from '../context/ToastContext';
 
-const tabs = ['New', 'Accepted', 'Packed', 'Delivered', 'Cancelled', 'Rejected'];
+const tabs = ['New', 'Accepted', 'Packed', 'Delivered', 'Cancelled', 'Rejected', 'All'];
 
 export default function OrdersScreen({ navigation }) {
   const { showToast } = useToast();
@@ -46,13 +46,14 @@ export default function OrdersScreen({ navigation }) {
 
   const filteredOrders = useMemo(() => {
     const byTab = sorted.filter((order) => {
+      if (activeTab === 'All') return true;
       if (activeTab === 'New') return order.status === 'Pending';
       if (activeTab === 'Packed') return ['Packed', 'Out for Delivery'].includes(order.status);
       return order.status === activeTab;
     });
     const query = search.trim().toLowerCase();
     if (!query) return byTab;
-    return byTab.filter((order) => `${order._id || ''} ${order.customer?.name || ''} ${order.deliveryAddress?.phone || ''}`.toLowerCase().includes(query));
+    return byTab.filter((order) => `${order._id || ''} ${order.customer?.name || ''} ${order.deliveryAddress?.phone || ''} ${order.deliveryAddress?.fullAddress || ''} ${order.status || ''}`.toLowerCase().includes(query));
   }, [activeTab, search, sorted]);
 
   if (loading) return <Loader />;
@@ -60,15 +61,15 @@ export default function OrdersScreen({ navigation }) {
   const header = (
     <View style={{ gap: 14 }}>
       <SectionHeader title="Orders" />
-      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search order/customer..." />
+      <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search order, customer, phone..." />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {tabs.map((tab) => (
           <Pressable
             key={tab}
             onPress={() => setActiveTab(tab)}
             style={{
-              minWidth: 92,
-              minHeight: 42,
+              minWidth: 82,
+              minHeight: 38,
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
@@ -77,7 +78,7 @@ export default function OrdersScreen({ navigation }) {
               borderColor: activeTab === tab ? colors.primary : colors.border
             }}
           >
-            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '900', fontSize: 11 }}>{tab}</Text>
+            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '600', fontSize: 11 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>

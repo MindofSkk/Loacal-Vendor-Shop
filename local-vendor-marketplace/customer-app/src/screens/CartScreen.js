@@ -39,7 +39,7 @@ export default function CartScreen({ navigation }) {
             <PriceRow label="Delivery charge" value={deliveryCharge} />
             <PriceRow label="To pay" value={toPay} strong />
             {minimumOrder > 0 ? (
-              <Text style={belowMinimum ? { color: '#b45309', fontWeight: '900' } : styles.muted}>
+              <Text style={belowMinimum ? { color: '#b45309', fontWeight: '600' } : styles.muted}>
                 Minimum order: Rs.{minimumOrder}
               </Text>
             ) : null}
@@ -52,7 +52,7 @@ export default function CartScreen({ navigation }) {
                 <Text style={styles.footerSummaryLabel}>To pay</Text>
                 <Text style={styles.footerSummaryValue}>Rs.{toPay}</Text>
               </View>
-              <Text style={belowMinimum ? { color: '#b45309', fontWeight: '700', maxWidth: 150, textAlign: 'right' } : styles.muted} numberOfLines={2}>
+              <Text style={belowMinimum ? { color: '#b45309', fontWeight: '600', maxWidth: 150, textAlign: 'right' } : styles.muted} numberOfLines={2}>
                 {belowMinimum ? `Add Rs.${minimumOrder - subtotal} more` : `${items.length} cart ${items.length === 1 ? 'item' : 'items'}`}
               </Text>
             </View>

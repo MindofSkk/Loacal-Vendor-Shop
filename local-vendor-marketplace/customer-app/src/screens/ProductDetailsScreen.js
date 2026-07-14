@@ -98,7 +98,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <AvailabilityIcon unavailable={unavailable} />
           </View>
           <Text style={styles.muted}>{product?.shop?.name || 'Local shop'}</Text>
-          <Text style={[styles.price, { fontSize: 28 }]}>Rs.{product?.price}</Text>
+          <Text style={[styles.price, { fontSize: 22 }]}>Rs.{product?.price}</Text>
           <Text style={styles.muted}>{product?.description || 'Fresh from a nearby shop.'}</Text>
           <View style={styles.metaPills}>
             <ProductTraitBadge product={product} />

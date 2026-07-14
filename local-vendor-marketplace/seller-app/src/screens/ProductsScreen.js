@@ -7,7 +7,7 @@ import { Button, ConfirmDialog, EmptyState, Loader, ProductRow, SearchBar, Secti
 import { colors } from '../constants';
 import { useToast } from '../context/ToastContext';
 
-const tabs = ['All', 'Active', 'Inactive'];
+const tabs = ['All', 'Available', 'Out of Stock', 'Veg', 'Non Veg', 'Newest'];
 
 export default function ProductsScreen({ navigation }) {
   const { showToast } = useToast();
@@ -42,10 +42,15 @@ export default function ProductsScreen({ navigation }) {
   );
 
   const filteredProducts = useMemo(() => {
-    const byTab = activeTab === 'All' ? products : activeTab === 'Active' ? products.filter((product) => product.status !== 'inactive') : products.filter((product) => product.status === 'inactive');
+    let byTab = products;
+    if (activeTab === 'Available') byTab = products.filter((product) => product.status !== 'inactive');
+    if (activeTab === 'Out of Stock') byTab = products.filter((product) => product.status === 'inactive' || Number(product.stock || 0) === 0);
+    if (activeTab === 'Veg') byTab = products.filter((product) => String(product.vegType || '').toLowerCase().includes('veg') && !String(product.vegType || '').toLowerCase().includes('non'));
+    if (activeTab === 'Non Veg') byTab = products.filter((product) => String(product.vegType || '').toLowerCase().includes('non'));
+    if (activeTab === 'Newest') byTab = [...products].sort((first, second) => new Date(second.createdAt || 0) - new Date(first.createdAt || 0));
     const query = search.trim().toLowerCase();
     if (!query) return byTab;
-    return byTab.filter((product) => `${product.name || ''} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''}`.toLowerCase().includes(query));
+    return byTab.filter((product) => `${product.name || ''} ${product.brand || ''} ${product.foodCategory || ''} ${product.groceryCategory || ''} ${product.dairyBakeryType || ''} ${product.price || ''}`.toLowerCase().includes(query));
   }, [activeTab, products, search]);
 
   const remove = async (product) => {
@@ -68,23 +73,23 @@ export default function ProductsScreen({ navigation }) {
     <View style={{ gap: 14 }}>
       <SectionHeader title="Products" />
       <SearchBar value={search} onChangeText={setSearch} onClear={() => setSearch('')} placeholder="Search products..." />
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {tabs.map((tab) => (
           <Pressable
             key={tab}
             onPress={() => setActiveTab(tab)}
             style={{
-              flex: 1,
-              minHeight: 42,
+              minHeight: 38,
               borderRadius: 999,
               alignItems: 'center',
               justifyContent: 'center',
+              paddingHorizontal: 13,
               backgroundColor: activeTab === tab ? colors.primary : '#fff',
               borderWidth: 1,
               borderColor: activeTab === tab ? colors.primary : colors.border
             }}
           >
-            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '900', fontSize: 12 }}>{tab}</Text>
+            <Text style={{ color: activeTab === tab ? '#fff' : colors.ink, fontWeight: '600', fontSize: 12 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>
@@ -104,7 +109,12 @@ export default function ProductsScreen({ navigation }) {
         ListHeaderComponent={header}
         ListEmptyComponent={shop ? <EmptyState title="No products" message="Products for this filter will appear here." /> : null}
         renderItem={({ item: product }) => (
-          <ProductRow product={product} onEdit={() => navigation.navigate('ProductForm', { shop, product })} onDelete={() => setPendingDelete(product)} />
+          <ProductRow
+            product={product}
+            onEdit={() => navigation.navigate('ProductForm', { shop, product })}
+            onDuplicate={() => showToast({ type: 'info', message: 'Duplicate product is coming soon.' })}
+            onDelete={() => setPendingDelete(product)}
+          />
         )}
       />
       <ConfirmDialog

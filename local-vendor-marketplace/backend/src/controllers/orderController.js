@@ -126,15 +126,40 @@ export const createOrder = asyncHandler(async (req, res) => {
     link: '/seller/orders'
   });
 
-  res.status(201).json(order);
+  const createdOrder = await Order.findById(order._id)
+    .populate('shop', 'name phone location logoUrl businessType deliverySettings');
+
+  res.status(201).json(createdOrder);
 });
 
 export const listMyOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({ customer: req.user._id })
-    .populate('shop', 'name phone location')
+    .populate('shop', 'name phone location logoUrl businessType deliverySettings')
     .sort({ createdAt: -1 });
 
   res.json(orders);
+});
+
+export const listMyActiveOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find({
+    customer: req.user._id,
+    status: { $nin: ['Delivered', 'Cancelled', 'Rejected'] }
+  })
+    .populate('shop', 'name phone location logoUrl businessType deliverySettings')
+    .sort({ createdAt: -1 });
+
+  res.json(orders);
+});
+
+export const getMyOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findOne({ _id: req.params.id, customer: req.user._id })
+    .populate('shop', 'name phone location logoUrl businessType deliverySettings');
+
+  if (!order) {
+    throw new ApiError(404, 'Order not found');
+  }
+
+  res.json(order);
 });
 
 export const cancelMyOrder = asyncHandler(async (req, res) => {

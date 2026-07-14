@@ -23,5 +23,7 @@ export const productApi = {
 export const orderApi = {
   create: (payload) => api.post('/orders', payload),
   myOrders: () => api.get('/orders/my'),
+  active: () => api.get('/orders/customer/active'),
+  get: (id) => api.get(`/orders/${id}`),
   cancel: (id, payload) => api.patch(`/orders/${id}/cancel`, payload)
 };

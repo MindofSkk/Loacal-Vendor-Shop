@@ -1,6 +1,7 @@
 import { ActivityIndicator, Image, Modal, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants';
+import { fontSizes, fontWeights, lineHeights, spacing } from '../theme/typography';
 import { getProductThumbnail } from '../utils/productImages';
 
 const radius = {
@@ -175,38 +176,50 @@ export function OptionRow({ options, value, onChange, getLabel }) {
   );
 }
 
-export function MetricCard({ label, value, tone = 'green', icon = 'stats-chart-outline' }) {
+export function MetricCard({ label, value, tone = 'green', icon = 'stats-chart-outline', trend }) {
   const toneStyle = tone === 'orange' ? styles.orangeMetric : tone === 'blue' ? styles.blueMetric : tone === 'purple' ? styles.purpleMetric : styles.greenMetric;
   return (
     <Card style={[styles.metricCard, toneStyle]}>
       <View style={styles.between}>
         <Text style={styles.metricLabel}>{label}</Text>
-        <Ionicons name={icon} size={18} color={colors.primary} />
+        <View style={styles.metricIcon}>
+          <Ionicons name={icon} size={16} color={colors.primary} />
+        </View>
       </View>
       <Text style={styles.metricValue}>{value}</Text>
+      {trend ? <Text style={styles.metricTrend}>{trend}</Text> : null}
     </Card>
   );
 }
 
-export function ProductRow({ product, onEdit, onDelete }) {
+export function ProductRow({ product, onEdit, onDelete, onDuplicate }) {
   const image = getProductThumbnail(product);
   const available = product.status !== 'inactive';
+  const meta = product.brand || product.foodCategory || product.groceryCategory || product.businessType || 'Product';
+  const stock = product.stock == null ? 'Stock managed' : `Stock ${product.stock}`;
 
   return (
-    <Card style={{ gap: 12 }}>
+    <Card style={styles.productRowCard}>
       <Pressable onPress={onEdit} style={styles.row}>
         <View style={styles.thumb}>{image ? <Image source={{ uri: image }} style={styles.image} /> : <Ionicons name="cube-outline" size={28} color={colors.primary} />}</View>
-        <View style={styles.flex}>
-          <View style={styles.between}>
-            <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
-            <StatusBadge status={available ? 'Active' : 'Inactive'} />
+        <View style={[styles.flex, { gap: 4 }]}>
+          <Text style={styles.title} numberOfLines={1}>{product.name}</Text>
+          <Text style={styles.muted} numberOfLines={1}>{meta}</Text>
+          <View style={styles.productMetaLine}>
+            <Text style={styles.price}>Rs.{product.price}</Text>
+            <Text style={styles.small}>{stock}</Text>
           </View>
-          <Text style={styles.muted} numberOfLines={1}>{product.brand || product.foodCategory || product.groceryCategory || product.businessType}</Text>
-          <Text style={styles.price}>Rs.{product.price}{product.stock != null ? ` | Stock ${product.stock}` : ''}</Text>
+        </View>
+        <View style={styles.productStatusColumn}>
+          <StatusBadge status={available ? 'Available' : 'Out'} />
+          <View style={[styles.switchTrack, available ? styles.switchTrackOn : null]}>
+            <View style={[styles.switchKnob, available ? styles.switchKnobOn : null]} />
+          </View>
         </View>
       </Pressable>
       <View style={styles.row}>
         <Button title="Edit" variant="secondary" onPress={onEdit} style={styles.flex} />
+        {onDuplicate ? <Button title="Duplicate" variant="secondary" onPress={onDuplicate} style={styles.flex} /> : null}
         <Button title="Delete" variant="outlineDanger" onPress={onDelete} style={styles.flex} />
       </View>
     </Card>
@@ -216,14 +229,15 @@ export function ProductRow({ product, onEdit, onDelete }) {
 export function OrderRow({ order, onPress }) {
   const total = order.totalAmount ?? order.subtotal ?? 0;
   const pendingStyle = order.status === 'Pending' ? styles.pendingOrder : null;
+  const itemCount = order.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed ? styles.pressed : null]}>
-      <Card style={[{ gap: 10 }, pendingStyle]}>
+      <Card style={[styles.orderRowCard, pendingStyle]}>
         <View style={styles.between}>
           <View style={styles.flex}>
-            <Text style={styles.title}>#{order._id?.slice(-6)}</Text>
-            <Text style={styles.muted} numberOfLines={1}>{order.customer?.name || 'Customer'}</Text>
+            <Text style={styles.title}>#{order._id?.slice(-6)?.toUpperCase()}</Text>
+            <Text style={styles.muted} numberOfLines={1}>{order.customer?.name || 'Customer'} - {itemCount} {itemCount === 1 ? 'item' : 'items'}</Text>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
             <Text style={styles.price}>Rs.{total}</Text>
@@ -231,6 +245,11 @@ export function OrderRow({ order, onPress }) {
           </View>
         </View>
         <Text style={styles.small} numberOfLines={1}>{order.deliveryAddress?.fullAddress || 'Address not available'}</Text>
+        <View style={styles.orderQuickRow}>
+          <Text style={styles.orderQuickText}>COD</Text>
+          <Text style={styles.orderQuickText}>ETA 25-30 min</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </View>
       </Card>
     </Pressable>
   );
@@ -285,35 +304,35 @@ export const AppCard = Card;
 
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, paddingBottom: 96, gap: 14 },
+  content: { padding: spacing.lg, paddingBottom: 88, gap: spacing.md },
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#EEF2F7',
     padding: 14,
     shadowColor: '#0f172a',
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3
+    shadowOpacity: 0.06,
+    shadowRadius: 11,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2
   },
   hero: { backgroundColor: '#ECFDF5', borderColor: '#BBF7D0' },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  row: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   appHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  headerSubtitle: { color: colors.muted, fontWeight: '700', fontSize: 12, marginTop: 2 },
+  headerTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
+  headerSubtitle: { color: colors.muted, fontWeight: fontWeights.medium, fontSize: fontSizes.sm, marginTop: 2 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   flex: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '900', color: colors.ink },
-  heading: { fontSize: 28, lineHeight: 34, fontWeight: '900', color: colors.ink },
-  subheading: { fontSize: 18, fontWeight: '900', color: colors.ink },
-  muted: { color: colors.muted, fontWeight: '600', lineHeight: 20 },
-  small: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
-  link: { color: colors.primary, fontWeight: '900' },
-  label: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginBottom: 6 },
+  title: { fontSize: fontSizes.base, lineHeight: lineHeights.base, fontWeight: fontWeights.semibold, color: colors.ink },
+  heading: { fontSize: fontSizes.xl, lineHeight: lineHeights.xl, fontWeight: fontWeights.semibold, color: colors.ink },
+  subheading: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
+  muted: { color: colors.muted, fontWeight: fontWeights.medium, lineHeight: lineHeights.md, fontSize: fontSizes.md },
+  small: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, marginTop: 3 },
+  link: { color: colors.primary, fontWeight: fontWeights.semibold },
+  label: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.semibold, textTransform: 'uppercase', marginBottom: 6 },
   inputShell: {
-    minHeight: 48,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -324,13 +343,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center'
   },
   inputError: { borderColor: colors.error, backgroundColor: '#fff7f7' },
-  fieldError: { color: colors.error, fontSize: 12, fontWeight: '800', marginTop: 5 },
-  helperText: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 5 },
-  textAreaShell: { minHeight: 96, justifyContent: 'flex-start', paddingTop: 12 },
-  input: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700', paddingVertical: 10 },
-  textArea: { minHeight: 74, textAlignVertical: 'top' },
+  fieldError: { color: colors.error, fontSize: 12, fontWeight: '600', marginTop: 5 },
+  helperText: { color: colors.muted, fontSize: fontSizes.sm, fontWeight: fontWeights.medium, marginTop: 5 },
+  textAreaShell: { minHeight: 90, justifyContent: 'flex-start', paddingTop: 11 },
+  input: { flex: 1, color: colors.ink, fontSize: fontSizes.base, fontWeight: fontWeights.medium, paddingVertical: 9 },
+  textArea: { minHeight: 70, textAlignVertical: 'top' },
   searchShell: {
-    minHeight: 46,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
@@ -340,10 +359,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8
   },
-  searchInput: { flex: 1, color: colors.ink, fontSize: 14, fontWeight: '700' },
+  searchInput: { flex: 1, color: colors.ink, fontSize: fontSizes.md, fontWeight: fontWeights.medium },
   iconButtonTiny: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   button: {
-    minHeight: 48,
+    minHeight: 46,
     borderRadius: radius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -356,41 +375,43 @@ export const styles = StyleSheet.create({
   dangerButton: { backgroundColor: colors.red },
   outlineDangerButton: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.red },
   ghostButton: { backgroundColor: 'transparent' },
-  buttonText: { color: '#fff', fontWeight: '900', fontSize: 15 },
+  buttonText: { color: '#fff', fontWeight: fontWeights.semibold, fontSize: fontSizes.md },
   secondaryButtonText: { color: colors.ink },
   outlineDangerText: { color: colors.red },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.78 },
   badge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, alignSelf: 'flex-start' },
-  badgeText: { color: colors.ink, fontSize: 11, fontWeight: '900' },
+  badgeText: { color: colors.ink, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold },
   greenBadge: { backgroundColor: '#dcfce7' },
   redBadge: { backgroundColor: '#fee2e2' },
   amberBadge: { backgroundColor: '#fef3c7' },
   blueBadge: { backgroundColor: '#dbeafe' },
   thumb: {
-    width: 68,
-    height: 68,
+    width: 62,
+    height: 62,
     borderRadius: radius.md,
     backgroundColor: '#dcfce7',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center'
   },
-  thumbText: { color: colors.primary, fontWeight: '900', fontSize: 24 },
+  thumbText: { color: colors.primary, fontWeight: '700', fontSize: 24 },
   image: { width: '100%', height: '100%' },
-  price: { color: colors.ink, fontWeight: '900', fontSize: 16 },
+  price: { color: colors.ink, fontWeight: fontWeights.semibold, fontSize: fontSizes.base },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   empty: { alignItems: 'center', gap: 8 },
   emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 18, fontWeight: '900', color: colors.ink },
+  emptyTitle: { fontSize: fontSizes.lg, fontWeight: fontWeights.semibold, color: colors.ink },
   optionWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff' },
   activeOption: { backgroundColor: colors.primary, borderColor: colors.primary },
-  optionText: { fontWeight: '900', color: colors.ink, fontSize: 12 },
+  optionText: { fontWeight: fontWeights.semibold, color: colors.ink, fontSize: fontSizes.sm },
   activeOptionText: { color: '#fff' },
-  metricCard: { flex: 1, minHeight: 96, justifyContent: 'space-between' },
-  metricLabel: { fontSize: 11, textTransform: 'uppercase', fontWeight: '900', color: colors.muted },
-  metricValue: { fontSize: 24, fontWeight: '900', color: colors.ink, marginTop: 8 },
+  metricCard: { flex: 1, minHeight: 82, justifyContent: 'space-between', gap: 5 },
+  metricLabel: { fontSize: fontSizes.xs, textTransform: 'uppercase', fontWeight: fontWeights.semibold, color: colors.muted },
+  metricValue: { fontSize: 21, fontWeight: fontWeights.semibold, color: colors.ink },
+  metricTrend: { color: colors.success, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold },
+  metricIcon: { width: 28, height: 28, borderRadius: 10, backgroundColor: 'rgba(4,155,79,0.1)', alignItems: 'center', justifyContent: 'center' },
   greenMetric: { backgroundColor: '#ecfdf5', borderColor: '#bbf7d0' },
   orangeMetric: { backgroundColor: '#fff7ed', borderColor: '#fed7aa' },
   blueMetric: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
@@ -398,9 +419,19 @@ export const styles = StyleSheet.create({
   pendingOrder: { borderColor: '#fdba74', backgroundColor: '#fff7ed' },
   skeletonWide: { height: 76, borderRadius: radius.md, backgroundColor: '#e5e7eb' },
   skeletonLine: { height: 14, width: '80%', borderRadius: 999, backgroundColor: '#e5e7eb' },
-  menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  menuCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 12 },
   iconBubble: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
   dangerBubble: { backgroundColor: '#FEF2F2' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.35)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modalCard: { width: '100%', gap: 14 }
+  modalCard: { width: '100%', gap: spacing.md },
+  productRowCard: { gap: 11, padding: 12 },
+  productMetaLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  productStatusColumn: { alignItems: 'flex-end', gap: 8 },
+  switchTrack: { width: 38, height: 22, borderRadius: 999, backgroundColor: '#E5E7EB', padding: 3 },
+  switchTrackOn: { backgroundColor: '#BBF7D0' },
+  switchKnob: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' },
+  switchKnobOn: { transform: [{ translateX: 16 }], backgroundColor: colors.primary },
+  orderRowCard: { gap: 9, padding: 12 },
+  orderQuickRow: { minHeight: 28, borderRadius: 999, backgroundColor: '#F8FAFC', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orderQuickText: { color: colors.muted, fontSize: fontSizes.xs, fontWeight: fontWeights.semibold }
 });
