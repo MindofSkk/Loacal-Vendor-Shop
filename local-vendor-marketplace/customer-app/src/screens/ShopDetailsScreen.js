@@ -91,7 +91,7 @@ function ProductImage({ uri, icon = 'restaurant-outline', iconSize = 28 }) {
 }
 
 export default function ShopDetailsScreen({ route, navigation }) {
-  const { shopId } = route.params;
+  const { shopId, quickProductId } = route.params || {};
   const { addItem, items, subtotal, updateQuantity } = useCart();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -102,6 +102,7 @@ export default function ShopDetailsScreen({ route, navigation }) {
   const [activeFilters, setActiveFilters] = useState([]);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [openedQuickProductId, setOpenedQuickProductId] = useState('');
   const [loading, setLoading] = useState(true);
   const canOrder = Boolean(shop?.openStatus?.isOpenNow && !shop?.temporaryClosure?.enabled);
   const businessType = String(shop?.businessType || '').toLowerCase();
@@ -193,6 +194,8 @@ export default function ShopDetailsScreen({ route, navigation }) {
   useEffect(() => {
     const load = async () => {
       try {
+        setLoading(true);
+        setOpenedQuickProductId('');
         const [shopRes, productRes] = await Promise.all([shopApi.get(shopId), productApi.list({ shop: shopId })]);
         setShop(shopRes.data);
         setProducts(productRes.data);
@@ -204,6 +207,16 @@ export default function ShopDetailsScreen({ route, navigation }) {
     };
     load();
   }, [shopId]);
+
+  useEffect(() => {
+    if (!isRestaurant || !quickProductId || loading || openedQuickProductId === quickProductId) return;
+
+    const quickProduct = products.find((product) => product._id === quickProductId);
+    if (!quickProduct) return;
+
+    setSelectedProduct(quickProduct);
+    setOpenedQuickProductId(quickProductId);
+  }, [isRestaurant, loading, openedQuickProductId, products, quickProductId]);
 
   useEffect(() => {
     if (!productCategories.includes(activeCategory)) {

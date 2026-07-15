@@ -103,6 +103,13 @@ const matchesModeCategory = (product, category) => {
   return category.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
 };
 
+const getProductShopId = (product) => (typeof product?.shop === 'string' ? product.shop : product?.shop?._id);
+
+const isRestaurantProduct = (product) => {
+  const businessType = String(product?.businessType || product?.shop?.businessType || '').toLowerCase();
+  return businessType.includes('restaurant') || businessType.includes('food');
+};
+
 export default function HomeScreen({ navigation }) {
   const { addItem } = useCart();
   const { activeOrder, refreshActiveOrder, orderNumber, shopName, totalAmount, itemCount, estimatedDeliveryTime, currentStatus } = useActiveOrder();
@@ -234,6 +241,25 @@ export default function HomeScreen({ navigation }) {
     }
   }, [addItem, navigation, showToast]);
 
+  const openProduct = useCallback((product) => {
+    if (isRestaurantProduct(product)) {
+      const productShopId = getProductShopId(product);
+
+      if (!productShopId) {
+        showToast({ type: 'warning', message: 'Open the restaurant first to view this item.' });
+        return;
+      }
+
+      navigation.navigate('ShopDetails', {
+        shopId: productShopId,
+        quickProductId: product._id
+      });
+      return;
+    }
+
+    navigation.navigate('ProductDetails', { productId: product._id });
+  }, [navigation, showToast]);
+
   const openProfile = useCallback(() => {
     navigation.getParent()?.navigate('Profile');
   }, [navigation]);
@@ -332,7 +358,7 @@ export default function HomeScreen({ navigation }) {
               renderItem={({ item: product }) => (
                 <ProductCard
                   product={product}
-                  onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+                  onPress={() => openProduct(product)}
                   onAdd={() => addToCart(product)}
                 />
               )}
@@ -360,7 +386,7 @@ export default function HomeScreen({ navigation }) {
               <ProductListCard
                 key={`recommended-${product._id}`}
                 product={product}
-                onPress={() => navigation.navigate('ProductDetails', { productId: product._id })}
+                onPress={() => openProduct(product)}
                 onAdd={() => addToCart(product)}
               />
             ))}
@@ -370,7 +396,7 @@ export default function HomeScreen({ navigation }) {
         )}
       </View>
     );
-  }, [activeConfig, addToCart, filteredProducts, filteredShops, hasSearch, navigation, noSearchResults]);
+  }, [activeConfig, addToCart, filteredProducts, filteredShops, hasSearch, navigation, noSearchResults, openProduct]);
 
   if (initialLoading) return <Loader />;
 

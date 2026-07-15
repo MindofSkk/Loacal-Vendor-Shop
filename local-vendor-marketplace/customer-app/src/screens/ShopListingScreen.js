@@ -57,6 +57,13 @@ const filters = [
   { key: 'sort', label: 'Sort' }
 ];
 
+const getProductShopId = (product) => (typeof product?.shop === 'string' ? product.shop : product?.shop?._id);
+
+const isRestaurantProduct = (product) => {
+  const businessType = String(product?.businessType || product?.shop?.businessType || '').toLowerCase();
+  return businessType.includes('restaurant') || businessType.includes('food');
+};
+
 export default function ShopListingScreen({ navigation }) {
   const { showToast } = useToast();
   const { addItem } = useCart();
@@ -114,6 +121,28 @@ export default function ShopListingScreen({ navigation }) {
     } catch (err) {
       showToast({ type: 'error', message: err.message });
     }
+  };
+
+  const openProduct = (product) => {
+    if (isRestaurantProduct(product)) {
+      const productShopId = getProductShopId(product);
+
+      if (!productShopId) {
+        showToast({ type: 'warning', message: 'Open the restaurant first to view this dish.' });
+        return;
+      }
+
+      navigation.navigate('Home', {
+        screen: 'ShopDetails',
+        params: {
+          shopId: productShopId,
+          quickProductId: product._id
+        }
+      });
+      return;
+    }
+
+    navigation.navigate('Home', { screen: 'ProductDetails', params: { productId: product._id } });
   };
 
   const visibleProducts = useMemo(() => {
@@ -252,7 +281,7 @@ export default function ShopListingScreen({ navigation }) {
             ) : (
               <ProductListCard
                 product={item}
-                onPress={() => navigation.navigate('Home', { screen: 'ProductDetails', params: { productId: item._id } })}
+                onPress={() => openProduct(item)}
                 onAdd={() => addToCart(item)}
               />
             )
