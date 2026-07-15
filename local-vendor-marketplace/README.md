@@ -87,7 +87,16 @@ cp seller-app/.env.example seller-app/.env
 
 3. Update `backend/.env` with MongoDB, JWT, and Cloudinary values. Cloudinary is only required when uploading product images.
 
-4. For Android/Expo apps, update both mobile `.env` files:
+4. For Android/Expo apps, update both mobile `.env` files.
+
+For production-like APK testing with the deployed Render backend:
+
+```env
+EXPO_PUBLIC_API_URL=https://loacal-vendor-shop.onrender.com/api
+EXPO_PUBLIC_EAS_PROJECT_ID=your-eas-project-id
+```
+
+For local development only, use your laptop IP address:
 
 ```env
 EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:5000/api
@@ -153,6 +162,18 @@ Frontend: `http://localhost:5173`
 
 Backend: `http://localhost:5000/api`
 
+Deployed testing backend:
+
+```text
+https://loacal-vendor-shop.onrender.com/api
+```
+
+Health check:
+
+```text
+https://loacal-vendor-shop.onrender.com/api/health
+```
+
 9. Start the Android customer app:
 
 ```bash
@@ -196,16 +217,16 @@ Backend:
 
 Mobile apps:
 
-- Customer package: `com.localvendor.customer`
-- Seller package: `com.localvendor.seller`
+- Customer package: `com.localshop.customer`
+- Seller package: `com.localshop.seller`
 - `google-services.json` is gitignored in each app folder.
 - Do not put Firebase service-account JSON or private keys in Expo public env variables.
 
 Firebase / EAS setup:
 
 1. Create two Android apps in Firebase:
-   - `com.localvendor.customer`
-   - `com.localvendor.seller`
+   - `com.localshop.customer`
+   - `com.localshop.seller`
 2. Download each Firebase `google-services.json`.
 3. Place the customer file at `customer-app/google-services.json`.
 4. Place the seller file at `seller-app/google-services.json`.
@@ -223,6 +244,81 @@ eas build -p android --profile preview
 
 cd ../seller-app
 eas build -p android --profile preview
+```
+
+## Android APK Testing Builds
+
+The customer and seller APK preview builds use the deployed Render backend:
+
+```text
+https://loacal-vendor-shop.onrender.com/api
+```
+
+Both `customer-app/eas.json` and `seller-app/eas.json` set this value in the `preview` and `production` profiles through `EXPO_PUBLIC_API_URL`.
+
+Customer APK:
+
+```bash
+cd customer-app
+npm install
+npx expo-doctor
+eas build -p android --profile preview
+```
+
+Seller APK:
+
+```bash
+cd seller-app
+npm install
+npx expo-doctor
+eas build -p android --profile preview
+```
+
+The `preview` profile generates installable APK files:
+
+- Customer: `com.localshop.customer`
+- Seller: `com.localshop.seller`
+
+Download APK from EAS:
+
+1. Open the EAS build URL shown after the build starts.
+2. Wait for the Android build to complete.
+3. Click `Download`.
+4. Transfer the APK to the Android phone or open the link directly on the phone.
+
+Install APK on Android:
+
+1. Open the downloaded APK.
+2. If Android blocks installation, enable `Install unknown apps` for Chrome, Files, or the app you used to open the APK.
+3. Install Customer and Seller APKs. They can be installed together because they use different package names.
+
+Two-app testing flow:
+
+1. Login to Customer App.
+2. Login to Seller App.
+3. Customer places an order.
+4. Seller accepts the order.
+5. Seller marks Preparing, Out for Delivery, and Delivered.
+6. Customer verifies the status changes in active order, orders list, and order details.
+
+If Render is sleeping, first API call may take longer. The mobile API clients use a 30 second timeout and show a friendly retry message for slow/network failures.
+
+To change API URL later:
+
+```env
+EXPO_PUBLIC_API_URL=https://your-new-backend.example.com/api
+```
+
+Then rebuild the APK with EAS.
+
+For Play Store later, generate AAB files:
+
+```bash
+cd customer-app
+eas build -p android --profile production
+
+cd ../seller-app
+eas build -p android --profile production
 ```
 
 Notification API:

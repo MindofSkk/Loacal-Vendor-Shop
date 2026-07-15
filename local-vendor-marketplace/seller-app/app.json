@@ -7,7 +7,14 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "android": {
-      "package": "com.localvendor.seller"
+      "package": "com.localshop.seller",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "plugins": [
       [
@@ -17,6 +24,12 @@
         }
       ],
       "expo-image-picker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e80cc5e8-ae42-44d3-97c0-f8c6e79a179f"
+      }
+    },
+    "owner": "helloskk"
   }
 }

@@ -8,7 +8,8 @@ export const setUnauthorizedHandler = (handler) => {
 };
 
 export const api = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://YOUR_LOCAL_IP:5000/api'
+  baseURL: process.env.EXPO_PUBLIC_API_URL || 'https://loacal-vendor-shop.onrender.com/api',
+  timeout: 30000
 });
 
 api.interceptors.request.use(async (config) => {
@@ -31,4 +32,8 @@ api.interceptors.response.use(
 );
 
 export const getApiError = (error) =>
-  error.response?.data?.message || error.response?.data?.details?.[0]?.msg || error.message || 'Something went wrong';
+  error.code === 'ECONNABORTED'
+    ? 'The server is taking longer than expected. Please try again.'
+    : error.message === 'Network Error'
+      ? 'Connecting to server failed. Please check your internet and try again.'
+      : error.response?.data?.message || error.response?.data?.details?.[0]?.msg || error.message || 'Something went wrong';

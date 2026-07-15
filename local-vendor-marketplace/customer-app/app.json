@@ -1,14 +1,18 @@
 {
   "expo": {
-    "name": "LocalShop Customer",
+    "name": "LocalShop",
     "slug": "localshop-customer",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "android": {
-      "package": "com.localvendor.customer",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "package": "com.localshop.customer",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "plugins": [
       [
@@ -23,6 +27,12 @@
           "locationWhenInUsePermission": "Location helps the seller deliver faster."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "08280902-ff39-4892-8b95-c2ea3c5500af"
+      }
+    },
+    "owner": "helloskk"
   }
 }
